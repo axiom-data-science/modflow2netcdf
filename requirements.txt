@@ -1,0 +1,7 @@
+pytest
+numpy<1.9
+matplotlib<1.4
+scipy
+netCDF4
+flopy
+pyproj

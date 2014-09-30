@@ -1,0 +1,80 @@
+                                  MODFLOW-2005     
+      U.S. GEOLOGICAL SURVEY MODULAR FINITE-DIFFERENCE GROUND-WATER FLOW MODEL
+                            VERSION 1.11.00 8/8/2013
+
+ LIST FILE: mod16_ssfix_wel2.lst
+                         UNIT   11
+#                                                                                                                                                                                                                                                                                                           
+# GWF Process input files                                                                                                                                                                                                                                                                                   
+
+ OPENING lsfixedsfr3tr.dis
+ FILE TYPE:DIS   UNIT   12   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16m.bas
+ FILE TYPE:BAS6   UNIT   13   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16_spheads_tsflux.oc
+ FILE TYPE:OC   UNIT   14   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16pest.mul
+ FILE TYPE:MULT   UNIT   15   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16pest.zon
+ FILE TYPE:ZONE   UNIT   18   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16pest_ssfix.lpf
+ FILE TYPE:LPF   UNIT   19   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16_AgIrr_all.rch
+ FILE TYPE:RCH   UNIT   20   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16m.drn
+ FILE TYPE:DRN   UNIT   21   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16m.riv
+ FILE TYPE:RIV   UNIT   22   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16_coop_new.ets
+ FILE TYPE:ETS   UNIT   23   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16m.ghb
+ FILE TYPE:GHB   UNIT   24   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16m.sfr
+ FILE TYPE:SFR   UNIT   25   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16_a.gmg
+ FILE TYPE:GMG   UNIT   26   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+#PCGN  26 db.pcgn                                                                                                                                                                                                                                                                                           
+
+ OPENING db.mnw
+ FILE TYPE:MNW1   UNIT   27   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING mod16.gag
+ FILE TYPE:GAGE   UNIT   28   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING db_new2.wel
+ FILE TYPE:WEL   UNIT   29   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+
+ OPENING db_weldona.fhb
+ FILE TYPE:FHB   UNIT   50   STATUS:OLD    
+ FORMAT:FORMATTED              ACCESS:SEQUENTIAL          
+#                                                                                                                                                                                                                                                                                                           
+# OBS-SEN-PES input files                                                                                                                                                                                                                                                                                   
+ ILLEGAL FILE TYPE IN NAME FILE: OBS
