@@ -7,7 +7,6 @@ from datetime import datetime
 
 from pyproj import Geod, Proj, transform
 import numpy as np
-import cartopy
 
 import matplotlib
 matplotlib.use('TkAgg')
@@ -119,7 +118,6 @@ class ModflowOutput(object):
         # Setup figure
         with LoggingTimer("Plotting", logger.info):
             fig = plt.figure()
-            map_proj = cartopy.crs.PlateCarree()
 
             vertical_layers = self.zs.shape[0]
 
@@ -128,20 +126,18 @@ class ModflowOutput(object):
             maxx = max(np.max(self.xs), np.max(self.no_rotation_xs))+0.025
             maxy = max(np.max(self.ys), np.max(self.no_rotation_ys))+0.025
 
-            before = fig.add_subplot(vertical_layers + 1, 2, 1, projection=map_proj)
+            before = fig.add_subplot(vertical_layers + 1, 2, 1)
             before.set_title("Grid")
             before.set_xlim(left=minx, right=maxx)
             before.set_ylim(bottom=miny, top=maxy)
-            before.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
             before.pcolor(self.no_rotation_xs, self.no_rotation_ys, np.zeros((self.dis.nrow, self.dis.ncol)))
             before.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
             before.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
 
-            after = fig.add_subplot(vertical_layers + 1, 2, 2, projection=map_proj)
+            after = fig.add_subplot(vertical_layers + 1, 2, 2)
             after.set_title("Rotated")
             after.set_xlim(left=minx, right=maxx)
             after.set_ylim(bottom=miny, top=maxy)
-            after.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
             after.pcolor(self.xs, self.ys, np.zeros((self.dis.nrow, self.dis.ncol)))
             after.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
             after.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
@@ -153,11 +149,10 @@ class ModflowOutput(object):
             maxy = np.max(self.ys)+0.025
 
             for k in range(vertical_layers):
-                after = fig.add_subplot(vertical_layers + 1, 2, k+3, projection=map_proj)
+                after = fig.add_subplot(vertical_layers + 1, 2, k+3)
                 after.set_title("Vertical Layer {!s}".format(k))
                 after.set_xlim(left=minx, right=maxx)
                 after.set_ylim(bottom=miny, top=maxy)
-                after.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
                 after.pcolor(self.xs, self.ys, self.zs[k,:,:])
 
         plt.show()
