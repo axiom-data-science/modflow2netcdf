@@ -59,11 +59,12 @@ class ModflowOutput(object):
         # Do we need to convert the y axis to cartisian?  I believe we do...
         z = z[:,:,::-1]
 
-        grid_crs, grid_x, grid_y, grid_rotation, grid_units = self.parse_geofile(geofile)
-        try:
-            provided_crs = Proj(init='epsg:{0!s}'.format(grid_crs))
-        except RuntimeError:
-            raise ValueError("Could not understand EPSG code '{!s}' from geofile.".format(grid_crs))
+        with LoggingTimer("Parsing GeoFile", self.log):
+            grid_crs, grid_x, grid_y, grid_rotation, grid_units = self.parse_geofile(geofile)
+            try:
+                provided_crs = Proj(init='epsg:{0!s}'.format(grid_crs))
+            except RuntimeError:
+                raise ValueError("Could not understand EPSG code '{!s}' from geofile.".format(grid_crs))
 
         # Convert distances to grid cell centers (from origin) to meters
         if grid_units == 'feet':
@@ -78,30 +79,32 @@ class ModflowOutput(object):
 
         notrotated_xs = np.ndarray(0)
         notrotated_ys = np.ndarray(0)
-        upper = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90)
-        for top_x, top_y in zip(upper["longitude"], upper["latitude"]):
-            # Compute the column points for each point in the upper row.
-            # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
-            row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180)
-            notrotated_xs = np.append(notrotated_xs, row["longitude"])
-            notrotated_ys = np.append(notrotated_ys, row["latitude"])
-        # Reshape
-        notrotated_xs = notrotated_xs.reshape(self.dis.nrow, self.dis.ncol)
-        notrotated_ys = notrotated_ys.reshape(self.dis.nrow, self.dis.ncol)
-
-        if grid_rotation != 0:
-            rotated_xs  = np.ndarray(0)
-            rotated_ys  = np.ndarray(0)
-            upper_rotated   = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90+grid_rotation)
-            for top_x, top_y in zip(upper_rotated["longitude"], upper_rotated["latitude"]):
+        with LoggingTimer("Computing unrotated output grid", self.log):
+            upper = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90)
+            for top_x, top_y in zip(upper["longitude"], upper["latitude"]):
                 # Compute the column points for each point in the upper row.
                 # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
-                row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+grid_rotation)
-                rotated_xs = np.append(rotated_xs, row["longitude"])
-                rotated_ys = np.append(rotated_ys, row["latitude"])
+                row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180)
+                notrotated_xs = np.append(notrotated_xs, row["longitude"])
+                notrotated_ys = np.append(notrotated_ys, row["latitude"])
             # Reshape
-            rotated_xs = rotated_xs.reshape(self.dis.nrow, self.dis.ncol)
-            rotated_ys = rotated_ys.reshape(self.dis.nrow, self.dis.ncol)
+            notrotated_xs = notrotated_xs.reshape(self.dis.nrow, self.dis.ncol)
+            notrotated_ys = notrotated_ys.reshape(self.dis.nrow, self.dis.ncol)
+
+        if grid_rotation != 0:
+            with LoggingTimer("Computing rotated output grid", self.log):
+                rotated_xs  = np.ndarray(0)
+                rotated_ys  = np.ndarray(0)
+                upper_rotated   = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90+grid_rotation)
+                for top_x, top_y in zip(upper_rotated["longitude"], upper_rotated["latitude"]):
+                    # Compute the column points for each point in the upper row.
+                    # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
+                    row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+grid_rotation)
+                    rotated_xs = np.append(rotated_xs, row["longitude"])
+                    rotated_ys = np.append(rotated_ys, row["latitude"])
+                # Reshape
+                rotated_xs = rotated_xs.reshape(self.dis.nrow, self.dis.ncol)
+                rotated_ys = rotated_ys.reshape(self.dis.nrow, self.dis.ncol)
         else:
             rotated_ys = notrotated_ys
             rotated_xs = notrotated_xs
@@ -116,143 +119,147 @@ class ModflowOutput(object):
 
     def to_plot(self):
         # Setup figure
-        fig = plt.figure()
-        map_proj = cartopy.crs.PlateCarree()
+        with LoggingTimer("Plotting", self.log):
+            fig = plt.figure()
+            map_proj = cartopy.crs.PlateCarree()
 
-        vertical_layers = self.zs.shape[0]
+            vertical_layers = self.zs.shape[0]
 
-        minx = min(np.min(self.xs), np.min(self.no_rotation_xs))-0.025
-        miny = min(np.min(self.ys), np.min(self.no_rotation_ys))-0.025
-        maxx = max(np.max(self.xs), np.max(self.no_rotation_xs))+0.025
-        maxy = max(np.max(self.ys), np.max(self.no_rotation_ys))+0.025
+            minx = min(np.min(self.xs), np.min(self.no_rotation_xs))-0.025
+            miny = min(np.min(self.ys), np.min(self.no_rotation_ys))-0.025
+            maxx = max(np.max(self.xs), np.max(self.no_rotation_xs))+0.025
+            maxy = max(np.max(self.ys), np.max(self.no_rotation_ys))+0.025
 
-        before = fig.add_subplot(vertical_layers + 1, 2, 1, projection=map_proj)
-        before.set_title("Grid")
-        before.set_xlim(left=minx, right=maxx)
-        before.set_ylim(bottom=miny, top=maxy)
-        before.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
-        before.pcolor(self.no_rotation_xs, self.no_rotation_ys, np.zeros((self.dis.nrow, self.dis.ncol)))
-        before.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
-        before.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
+            before = fig.add_subplot(vertical_layers + 1, 2, 1, projection=map_proj)
+            before.set_title("Grid")
+            before.set_xlim(left=minx, right=maxx)
+            before.set_ylim(bottom=miny, top=maxy)
+            before.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
+            before.pcolor(self.no_rotation_xs, self.no_rotation_ys, np.zeros((self.dis.nrow, self.dis.ncol)))
+            before.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
+            before.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
 
-        after = fig.add_subplot(vertical_layers + 1, 2, 2, projection=map_proj)
-        after.set_title("Rotated")
-        after.set_xlim(left=minx, right=maxx)
-        after.set_ylim(bottom=miny, top=maxy)
-        after.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
-        after.pcolor(self.xs, self.ys, np.zeros((self.dis.nrow, self.dis.ncol)))
-        after.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
-        after.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
-
-        # Recalculate the bounds for the images so they reference the rotated grid.
-        minx = np.min(self.xs)-0.025
-        miny = np.min(self.ys)-0.025
-        maxx = np.max(self.xs)+0.025
-        maxy = np.max(self.ys)+0.025
-
-        for k in range(vertical_layers):
-            after = fig.add_subplot(vertical_layers + 1, 2, k+3, projection=map_proj)
-            after.set_title("Vertical Layer {!s}".format(k))
+            after = fig.add_subplot(vertical_layers + 1, 2, 2, projection=map_proj)
+            after.set_title("Rotated")
             after.set_xlim(left=minx, right=maxx)
             after.set_ylim(bottom=miny, top=maxy)
             after.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
-            after.pcolor(self.xs, self.ys, self.zs[k,:,:])
+            after.pcolor(self.xs, self.ys, np.zeros((self.dis.nrow, self.dis.ncol)))
+            after.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
+            after.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
+
+            # Recalculate the bounds for the images so they reference the rotated grid.
+            minx = np.min(self.xs)-0.025
+            miny = np.min(self.ys)-0.025
+            maxx = np.max(self.xs)+0.025
+            maxy = np.max(self.ys)+0.025
+
+            for k in range(vertical_layers):
+                after = fig.add_subplot(vertical_layers + 1, 2, k+3, projection=map_proj)
+                after.set_title("Vertical Layer {!s}".format(k))
+                after.set_xlim(left=minx, right=maxx)
+                after.set_ylim(bottom=miny, top=maxy)
+                after.add_feature(cartopy.feature.LAND, edgecolor='black', zorder=0)
+                after.pcolor(self.xs, self.ys, self.zs[k,:,:])
 
         plt.show()
 
     def to_netcdf(self, output_file):
-        # Metadata
-        t_size = 2
-        z_size, x_size, y_size = self.zs.shape
-        t_chunk = min(t_size, 100)
-        x_chunk = x_size / 2.
-        y_chunk = y_size / 2.
-        z_chunk = 1
-        min_vertical = np.min(self.zs)
-        max_vertical = np.max(self.zs)
+        with LoggingTimer("Setting up NetCDF file", self.log):
+            # Metadata
+            t_size = 2
+            z_size, x_size, y_size = self.zs.shape
+            t_chunk = min(t_size, 100)
+            x_chunk = x_size / 2.
+            y_chunk = y_size / 2.
+            z_chunk = 1
+            min_vertical = np.min(self.zs)
+            max_vertical = np.max(self.zs)
 
-        nc = netCDF4.Dataset(output_file, "w")
-        nc.setncattr("Conventions", "CF-1.6")
-        nc.setncattr("date_created", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:00Z"))
-        nc.setncattr("geospatial_vertical_positive",   "up")
-        nc.setncattr("geospatial_vertical_min",        min_vertical)
-        nc.setncattr("geospatial_vertical_max",        max_vertical)
-        nc.setncattr("geospatial_vertical_resolution", "variable")
-        nc.setncattr("featureType", "Grid")
+            nc = netCDF4.Dataset(output_file, "w")
+            nc.setncattr("Conventions", "CF-1.6")
+            nc.setncattr("date_created", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:00Z"))
+            nc.setncattr("geospatial_vertical_positive",   "up")
+            nc.setncattr("geospatial_vertical_min",        min_vertical)
+            nc.setncattr("geospatial_vertical_max",        max_vertical)
+            nc.setncattr("geospatial_vertical_resolution", "variable")
+            nc.setncattr("featureType", "Grid")
 
-        # Dimensions
-        nc.createDimension("time", t_size)
-        nc.createDimension('x', x_size)
-        nc.createDimension('y', y_size)
-        nc.createDimension('layer', z_size)
+            # Dimensions
+            nc.createDimension("time", t_size)
+            nc.createDimension('x', x_size)
+            nc.createDimension('y', y_size)
+            nc.createDimension('layer', z_size)
 
-        # Time
-        time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
-        time.units          = "seconds since 1970-01-01T00:00:00Z"
-        time.standard_name  = "time"
-        time.long_name      = "time of measurement"
-        time.calendar       = "gregorian"
-        time[:] = np.asarray([0, 3600])
+            # Time
+            time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
+            time.units          = "seconds since 1970-01-01T00:00:00Z"
+            time.standard_name  = "time"
+            time.long_name      = "time of measurement"
+            time.calendar       = "gregorian"
+            time[:] = np.asarray([0, 3600])
 
-        # Metadata variables
-        crs = nc.createVariable("crs", "i4")
-        crs.long_name           = "http://www.opengis.net/def/crs/EPSG/0/4326"
-        crs.epsg_code           = "EPSG:4326"
-        crs.semi_major_axis     = float(6378137.0)
-        crs.inverse_flattening  = float(298.257223563)
+            # Metadata variables
+            crs = nc.createVariable("crs", "i4")
+            crs.long_name           = "http://www.opengis.net/def/crs/EPSG/0/4326"
+            crs.epsg_code           = "EPSG:4326"
+            crs.semi_major_axis     = float(6378137.0)
+            crs.inverse_flattening  = float(298.257223563)
 
-        # Latitude
-        lat = nc.createVariable('latitude', 'f8', ('y', 'x',), chunksizes=(y_chunk, x_chunk,))
-        lat.units         = "degrees_north"
-        lat.standard_name = "latitude"
-        lat.long_name     = "latitude"
-        lat.axis          = "Y"
-        lat[:]            = self.ys
+            # Latitude
+            lat = nc.createVariable('latitude', 'f8', ('y', 'x',), chunksizes=(y_chunk, x_chunk,))
+            lat.units         = "degrees_north"
+            lat.standard_name = "latitude"
+            lat.long_name     = "latitude"
+            lat.axis          = "Y"
+            lat[:]            = self.ys
 
-        # Longitude
-        lon = nc.createVariable('longitude', 'f8', ('y', 'x',), chunksizes=(y_chunk, x_chunk,))
-        lon.units         = "degrees_east"
-        lon.standard_name = "longitude"
-        lon.long_name     = "longitude"
-        lon.axis          = "X"
-        lon[:]            = self.xs
+            # Longitude
+            lon = nc.createVariable('longitude', 'f8', ('y', 'x',), chunksizes=(y_chunk, x_chunk,))
+            lon.units         = "degrees_east"
+            lon.standard_name = "longitude"
+            lon.long_name     = "longitude"
+            lon.axis          = "X"
+            lon[:]            = self.xs
 
-        # Elevation
-        ele = nc.createVariable('elevation', 'f8', ('layer', 'y', 'x',), chunksizes=(z_chunk, y_chunk, x_chunk,))
-        ele.units         = "meters"
-        ele.standard_name = "elevation"
-        ele.long_name     = "elevation"
-        ele.valid_min     = min_vertical
-        ele.valid_max     = max_vertical
-        ele.positive      = "down"
-        ele[:]            = self.zs
+            # Elevation
+            ele = nc.createVariable('elevation', 'f8', ('layer', 'y', 'x',), chunksizes=(z_chunk, y_chunk, x_chunk,))
+            ele.units         = "meters"
+            ele.standard_name = "elevation"
+            ele.long_name     = "elevation"
+            ele.valid_min     = min_vertical
+            ele.valid_max     = max_vertical
+            ele.positive      = "down"
+            ele[:]            = self.zs
 
-        lay = nc.createVariable('layer', 'f4', ('layer',))
-        lay.units         = ''
-        lay.long_name     = 'layer'
-        lay.positive      = "down"
-        lay.axis          = 'Z'
-        lay[:]            = np.arange(0, z_size)
+            lay = nc.createVariable('layer', 'f4', ('layer',))
+            lay.units         = ''
+            lay.long_name     = 'layer'
+            lay.positive      = "down"
+            lay.axis          = 'Z'
+            lay[:]            = np.arange(0, z_size)
 
-        # Workaround for CF/CDM.
-        # http://www.unidata.ucar.edu/software/thredds/current/netcdf-java/reference/StandardCoordinateTransforms.html
-        # "explicit_field"
-        exp  = nc.createVariable('VerticalTransform', 'S1')
-        exp.transform_name           = "explicit_field"
-        exp.existingDataField        = "elevation"
-        exp._CoordinateTransformType = "vertical"
-        exp._CoordinateAxes          = "layer"
+            # Workaround for CF/CDM.
+            # http://www.unidata.ucar.edu/software/thredds/current/netcdf-java/reference/StandardCoordinateTransforms.html
+            # "explicit_field"
+            exp  = nc.createVariable('VerticalTransform', 'S1')
+            exp.transform_name           = "explicit_field"
+            exp.existingDataField        = "elevation"
+            exp._CoordinateTransformType = "vertical"
+            exp._CoordinateAxes          = "layer"
 
-        # Dummy variable (for now)
-        d1 = nc.createVariable('dummy1', 'f4', ('time', 'layer', 'y', 'x',), chunksizes=(t_chunk, z_chunk, y_chunk, x_chunk,))
-        d1.units         = "foo"
-        d1.standard_name = "bar"
-        d1.long_name     = "foo bar"
-        d1.coordinates   = "time layer latitude longitude"
-        d1[:]            = np.random.random((t_size, z_size, y_size, x_size))
+            # Dummy variable (for now)
+            d1 = nc.createVariable('dummy1', 'f4', ('time', 'layer', 'y', 'x',), chunksizes=(t_chunk, z_chunk, y_chunk, x_chunk,))
+            d1.units         = "foo"
+            d1.standard_name = "bar"
+            d1.long_name     = "foo bar"
+            d1.coordinates   = "time layer latitude longitude"
+            d1[:]            = np.random.random((t_size, z_size, y_size, x_size))
 
-        nc.sync()
-        nc.close()
+        with LoggingTimer("Writing NetCDF file", self.log):
+            nc.sync()
+            nc.close()
+
         return nc
 
 
