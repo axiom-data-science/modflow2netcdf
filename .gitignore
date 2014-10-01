@@ -54,5 +54,8 @@ docs/_build/
 
 *.sublime*
 
+# Markdown generation for viewing locally
+README.html
+
 # Testing output
 output.nc
