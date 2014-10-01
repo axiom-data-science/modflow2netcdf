@@ -77,6 +77,6 @@ m           # Units of measurment in output ('meters', 'm', 'feet', or 'f')
 -8012405.88 # Longitude of upper grid left point (origin)
 5078408.56  # Latitude of uppper grid left point (origin)
 0           # True north based grid rotation angle (clockwise from true north)
-ft          # Units of measurment in output ('meters', 'm', 'feet', or 'f')
+ft          # Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
 ```
 
