@@ -51,8 +51,8 @@ http://code.google.com/p/flopy/
 
 #### Inputs
 
-The `mod2net` command takes in two parameters, a path a the Modflow namefile
-(.nam) and a path to a `mod2net` [configuration file](#configuration-file) file.
+The `mod2net` command takes in two parameters, the path to a Modflow namefile
+(.nam) and the path to a `mod2net` [configuration file](#configuration-file) file.
 
 ###### Examples
 
