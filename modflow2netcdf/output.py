@@ -34,9 +34,7 @@ class ModflowOutput(object):
         if verbose is not True:
             verbose = False
 
-        self.log = get_log(verbose)
-
-        with LoggingTimer("Loaded input and output files", self.log):
+        with LoggingTimer("Loaded input and output files", logger.info):
             self.mf = Modflow.load(namfilename,
                                    version=version,
                                    exe_name=exe_name,
@@ -59,7 +57,7 @@ class ModflowOutput(object):
         # Do we need to convert the y axis to cartisian?  I believe we do...
         z = z[:,:,::-1]
 
-        with LoggingTimer("Parsing GeoFile", self.log):
+        with LoggingTimer("Parsing GeoFile", logger.info):
             grid_crs, grid_x, grid_y, grid_rotation, grid_units = self.parse_geofile(geofile)
             try:
                 provided_crs = Proj(init='epsg:{0!s}'.format(grid_crs))
@@ -74,12 +72,12 @@ class ModflowOutput(object):
         # Transform to a known CRS
         wgs84_crs        = Proj(init='epsg:4326')
         known_x, known_y = transform(provided_crs, wgs84_crs, grid_x, grid_y)
-        self.log("Input origin point: {!s}, {!s} (EPSG:{!s})".format(grid_x, grid_y, grid_crs))
-        self.log("Lat/Lon origin point: {!s}, {!s} (EPSG:4326)".format(known_x, known_y))
+        logger.debug("Input origin point: {!s}, {!s} (EPSG:{!s})".format(grid_x, grid_y, grid_crs))
+        logger.debug("Lat/Lon origin point: {!s}, {!s} (EPSG:4326)".format(known_x, known_y))
 
         notrotated_xs = np.ndarray(0)
         notrotated_ys = np.ndarray(0)
-        with LoggingTimer("Computing unrotated output grid", self.log):
+        with LoggingTimer("Computing unrotated output grid", logger.info):
             upper = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90)
             for top_x, top_y in zip(upper["longitude"], upper["latitude"]):
                 # Compute the column points for each point in the upper row.
@@ -92,7 +90,7 @@ class ModflowOutput(object):
             notrotated_ys = notrotated_ys.reshape(self.dis.nrow, self.dis.ncol)
 
         if grid_rotation != 0:
-            with LoggingTimer("Computing rotated output grid", self.log):
+            with LoggingTimer("Computing rotated output grid", logger.info):
                 rotated_xs  = np.ndarray(0)
                 rotated_ys  = np.ndarray(0)
                 upper_rotated   = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90+grid_rotation)
@@ -119,7 +117,7 @@ class ModflowOutput(object):
 
     def to_plot(self):
         # Setup figure
-        with LoggingTimer("Plotting", self.log):
+        with LoggingTimer("Plotting", logger.info):
             fig = plt.figure()
             map_proj = cartopy.crs.PlateCarree()
 
@@ -165,7 +163,7 @@ class ModflowOutput(object):
         plt.show()
 
     def to_netcdf(self, output_file):
-        with LoggingTimer("Setting up NetCDF file", self.log):
+        with LoggingTimer("Setting up NetCDF file", logger.info):
             # Metadata
             t_size = 2
             z_size, x_size, y_size = self.zs.shape
@@ -256,7 +254,7 @@ class ModflowOutput(object):
             d1.coordinates   = "time layer latitude longitude"
             d1[:]            = np.random.random((t_size, z_size, y_size, x_size))
 
-        with LoggingTimer("Writing NetCDF file", self.log):
+        with LoggingTimer("Writing NetCDF file", logger.info):
             nc.sync()
             nc.close()
 
@@ -300,13 +298,6 @@ class ModflowOutput(object):
         except BaseException:
             logger.exception("ok")
             raise ValueError("Could not open geofile: {!s}".format(geofile))
-
-
-def get_log(verbose=None):
-    if verbose:
-        return logger.info
-    else:
-        return logger.debug
 
 
 def parse(namfilename, packages):
