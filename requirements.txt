@@ -5,3 +5,4 @@ scipy
 netCDF4
 flopy
 pyproj
+pygc
