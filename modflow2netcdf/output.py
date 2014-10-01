@@ -58,7 +58,6 @@ class ModflowOutput(object):
         z = z*-1.
         # Do we need to convert the y axis to cartisian?  I believe we do...
         z = z[:,:,::-1]
-        self.log(z)
 
         grid_crs, grid_x, grid_y, grid_rotation, grid_units = self.parse_geofile(geofile)
         try:
