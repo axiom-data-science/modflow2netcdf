@@ -63,20 +63,28 @@ A `mod2net` configuration file should be formated as so:
 
 
 ###### WGS84 Configuration
-```python
-4326        # EPSG code of grid projection
--72         # Longitude of upper grid left point (origin)
-41.44       # Latitude of uppper grid left point (origin)
-45          # True north based grid rotation angle (clockwise from true north)
-m           # Units of measurment in output ('meters', 'm', 'feet', or 'f')
+```ini
+[grid]
+crs:      4326        ; EPSG code of grid projection
+origin_x: -72         ; Longitude of upper grid left point (origin)
+origin_y: 41.44       ; Latitude of uppper grid left point (origin)
+rotation: 45          ; True north based grid rotation angle (clockwise from true north)
+units:    m           ; Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
+
+[general]
+precision:  double    ; If the model was run with single or double precision. 'single' or 'double'.
 ```
 
 ###### Web-mercator Configuration
-```python
-3857        # EPSG code of grid projection
--8012405.88 # Longitude of upper grid left point (origin)
-5078408.56  # Latitude of uppper grid left point (origin)
-0           # True north based grid rotation angle (clockwise from true north)
-ft          # Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
+```ini
+[grid]
+crs:      3857        ; EPSG code of grid projection
+origin_x: -8012405.88 ; Longitude of upper grid left point (origin)
+origin_y: 5078408.56  ; Latitude of uppper grid left point (origin)
+rotation: 0           ; True north based grid rotation angle (clockwise from true north)
+units:    ft          ; Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
+
+[general]
+precision:  single    ; If the model was run with single or double precision. 'single' or 'double'.
 ```
 

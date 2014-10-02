@@ -13,38 +13,38 @@ logger.addHandler(logging.StreamHandler())
 class TestOutput(unittest.TestCase):
 
     def setUp(self):
-        self.resource      = os.path.join(os.path.dirname(__file__), "resources", "l1a2k.nam")
-        self.wgs84_geofile = os.path.join(os.path.dirname(__file__), "resources", "wgs84.geo")
-        self.web_geofile   = os.path.join(os.path.dirname(__file__), "resources", "web.geo")
-        self.bad_geofile   = os.path.join(os.path.dirname(__file__), "resources", "bad.geo")
-        self.output_file   = os.path.join(os.path.dirname(__file__), "resources", "output.nc")
+        self.resource          = os.path.join(os.path.dirname(__file__), "resources", "l1a2k.nam")
+        self.wgs84_config_file = os.path.join(os.path.dirname(__file__), "resources", "wgs84.geo")
+        self.web_config_file   = os.path.join(os.path.dirname(__file__), "resources", "web.geo")
+        self.bad_config_file   = os.path.join(os.path.dirname(__file__), "resources", "bad.geo")
+        self.output_file       = os.path.join(os.path.dirname(__file__), "resources", "output.nc")
 
-    def test_no_geofile(self):
+    def test_no_config_file(self):
         with self.assertRaises(ValueError):
-            ModflowOutput(self.resource, geofile=None, exe_name="mf2005", verbose=False)
+            ModflowOutput(self.resource, config_file=None, exe_name="mf2005", verbose=False)
 
-    def test_bad_geofile(self):
+    def test_bad_config_file(self):
         with self.assertRaises(ValueError):
-            ModflowOutput(self.resource, geofile=self.bad_geofile, exe_name="mf2005", verbose=False)
+            ModflowOutput(self.resource, config_file=self.bad_config_file, exe_name="mf2005", verbose=False)
 
     def test_load(self):
-        mf = ModflowOutput(self.resource, geofile=self.wgs84_geofile, exe_name="mf2005", verbose=True)
+        mf = ModflowOutput(self.resource, config_file=self.wgs84_config_file, exe_name="mf2005", verbose=True)
         assert mf is not None
 
     def test_plot(self):
-        mf = ModflowOutput(self.resource, geofile=self.wgs84_geofile, exe_name="mf2005", verbose=True)
+        mf = ModflowOutput(self.resource, config_file=self.wgs84_config_file, exe_name="mf2005", verbose=True)
         assert mf is not None
         mf.to_plot()
 
-    def test_web_geofile(self):
-        mf = ModflowOutput(self.resource, geofile=self.web_geofile, exe_name="mf2005", verbose=False)
+    def test_web_config_file(self):
+        mf = ModflowOutput(self.resource, config_file=self.web_config_file, exe_name="mf2005", verbose=False)
         assert mf is not None
         mf.to_netcdf(output_file=self.output_file)
         nc = netCDF4.Dataset(self.output_file)
         assert nc is not None
 
     def test_convert(self):
-        mf = ModflowOutput(self.resource, geofile=self.wgs84_geofile, exe_name="mf2005", verbose=False)
+        mf = ModflowOutput(self.resource, config_file=self.wgs84_config_file, exe_name="mf2005", verbose=False)
         assert mf is not None
         mf.to_netcdf(output_file=self.output_file)
         nc = netCDF4.Dataset(self.output_file)
@@ -53,7 +53,7 @@ class TestOutput(unittest.TestCase):
     def test_colorado_netcdf(self):
         colorado_nam = os.path.join(os.path.dirname(__file__), "resources", "colorado", "mod16_ssfix_wel2.nam")
         colorado_geo = os.path.join(os.path.dirname(__file__), "resources", "colorado", "colorado.geo")
-        mf = ModflowOutput(colorado_nam, geofile=colorado_geo, exe_name="mf2005", verbose=True)
+        mf = ModflowOutput(colorado_nam, config_file=colorado_geo, exe_name="mf2005", verbose=True)
         assert mf is not None
         mf.to_netcdf(output_file=self.output_file)
         nc = netCDF4.Dataset(self.output_file)

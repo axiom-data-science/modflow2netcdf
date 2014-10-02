@@ -5,6 +5,8 @@ import math
 from copy import copy
 from datetime import datetime
 
+import ConfigParser
+
 from pyproj import Geod, Proj, transform
 import numpy as np
 
@@ -25,7 +27,7 @@ from modflow2netcdf.utils import LoggingTimer
 
 class ModflowOutput(object):
 
-    def __init__(self, namfilename, geofile=None, version=None, exe_name=None, verbose=None, model_ws=None):
+    def __init__(self, namfilename, config_file=None, version=None, exe_name=None, verbose=None, model_ws=None):
         if exe_name is None:
             exe_name = 'mf2005.exe'
         if version is None:
@@ -41,13 +43,50 @@ class ModflowOutput(object):
                                    model_ws=model_ws)
             assert self.mf is not None
 
-        # Load DIS
-        self.dis = self.mf.get_package('DIS')
-        assert self.dis is not None
+        # DIS (required)
+        try:
+            self.dis = self.mf.get_package('DIS')
+            assert self.dis is not None
+        except AssertionError:
+            raise ValueError("DIS file could not be found.  It is required.")
 
-        self.get_coordinates(geofile)
+        # BAS
+        try:
+            self.bas = self.mf.get_package('BAS')
+            assert self.bas is not None
+        except AssertionError:
+            logger.warning("BAS file could not be found.")
 
-    def get_coordinates(self, geofile):
+        # LPF
+        try:
+            self.bas = self.mf.get_package('LPF')
+            assert self.bas is not None
+        except AssertionError:
+            logger.warning("LPF file could not be found.")
+
+        # Now process
+        with LoggingTimer("Parsing config file", logger.info):
+            self.parse_config_file(config_file)
+        self.get_coordinates()
+
+    def get_fill_values(self):
+
+        fills = []
+        # Load first fill value from .bas file
+        with LoggingTimer("Retrieving fill values", logger.info):
+            # hnoflo
+            if self.bas is not None:
+                self.fills.append(self.bas.hnoflo)
+            else:
+                self.fills.append(-999.99)
+            # hdry
+            if self.lpf is not None:
+                self.fills.append(self.lpf.hdry)
+            else:
+                self.fills.append(-1e30)
+        return fills
+
+    def get_coordinates(self):
         y, x, z = self.dis.get_node_coordinates()
         #y = y[::-1]
 
@@ -56,22 +95,15 @@ class ModflowOutput(object):
         # Do we need to convert the y axis to cartisian?  I believe we do...
         z = z[:,:,::-1]
 
-        with LoggingTimer("Parsing GeoFile", logger.info):
-            grid_crs, grid_x, grid_y, grid_rotation, grid_units = self.parse_geofile(geofile)
-            try:
-                provided_crs = Proj(init='epsg:{0!s}'.format(grid_crs))
-            except RuntimeError:
-                raise ValueError("Could not understand EPSG code '{!s}' from geofile.".format(grid_crs))
-
         # Convert distances to grid cell centers (from origin) to meters
-        if grid_units == 'feet':
+        if self.grid_units == 'feet':
             x = x*0.3048
             y = y*0.3048
 
         # Transform to a known CRS
         wgs84_crs        = Proj(init='epsg:4326')
-        known_x, known_y = transform(provided_crs, wgs84_crs, grid_x, grid_y)
-        logger.debug("Input origin point: {!s}, {!s} (EPSG:{!s})".format(grid_x, grid_y, grid_crs))
+        known_x, known_y = transform(self.grid_crs, wgs84_crs, self.grid_x, self.grid_y)
+        logger.debug("Input origin point: {!s}, {!s}".format(self.grid_x, self.grid_y))
         logger.debug("Lat/Lon origin point: {!s}, {!s} (EPSG:4326)".format(known_x, known_y))
 
         notrotated_xs = np.ndarray(0)
@@ -88,15 +120,15 @@ class ModflowOutput(object):
             notrotated_xs = notrotated_xs.reshape(self.dis.nrow, self.dis.ncol)
             notrotated_ys = notrotated_ys.reshape(self.dis.nrow, self.dis.ncol)
 
-        if grid_rotation != 0:
+        if self.grid_rotation != 0:
             with LoggingTimer("Computing rotated output grid", logger.info):
                 rotated_xs  = np.ndarray(0)
                 rotated_ys  = np.ndarray(0)
-                upper_rotated   = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90+grid_rotation)
+                upper_rotated   = great_circle(distance=x, latitude=known_y, longitude=known_x, azimuth=90+self.grid_rotation)
                 for top_x, top_y in zip(upper_rotated["longitude"], upper_rotated["latitude"]):
                     # Compute the column points for each point in the upper row.
                     # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
-                    row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+grid_rotation)
+                    row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+self.grid_rotation)
                     rotated_xs = np.append(rotated_xs, row["longitude"])
                     rotated_ys = np.append(rotated_ys, row["latitude"])
                 # Reshape
@@ -256,43 +288,42 @@ class ModflowOutput(object):
         return nc
 
 
-    def parse_geofile(self, geofile):
-        if geofile is None:
-            raise ValueError("No geofile provided")
+    def parse_config_file(self, config_file):
+        if config_file is None:
+            raise ValueError("No config file provided")
+
+        config = ConfigParser.SafeConfigParser()
+        try:
+            config.read(config_file)
+        except ConfigParser.ParsingError as e:
+            raise ValueError("Bad configuration file.  Please check the contents. {!s}.".format(e.message))
 
         try:
-            with open(geofile) as f:
-                # crs
-                # x
-                # y
-                # rotation
-                # units
-                info = f.read()
-            data = [x.strip() for x in info.split("\n")][0:5]
-            data = [x if x != "" and x != "-" else None for x in data]
+            self.grid_x        = config.getfloat('grid', 'origin_x')
+            self.grid_y        = config.getfloat('grid', 'origin_y')
+            self.grid_rotation = config.getfloat('grid', 'rotation')
 
+            # CRS
+            config_crs = config.getint('grid', 'crs')
             try:
-                int(data[0])
-            except ValueError:
-                raise ValueError("CRS code '{!s}' from geofile is not an integer.".format(data[0]))
+                self.grid_crs = Proj(init='epsg:{0!s}'.format(config_crs))
+            except RuntimeError:
+                raise ValueError("Could not understand EPSG code '{!s}' from config file.".format(config_crs))
 
-            if data[4] is None:
+            # Units
+            grid_units    = config.get('grid', 'units')
+            if grid_units is None:
                 logger.info("Defaulting to 'meters' as the grid units")
-                data[4] = "meters"
-            elif data[4][0] == "m":
-                data[4] = "meters"
-            elif data[4][0] == "f":
-                data[4] = "feet"
+                grid_units = "meters"
+            elif grid_units[0] == "m":
+                grid_units = "meters"
+            elif grid_units[0] == "f":
+                grid_units = "feet"
             else:
-                raise ValueError("Only units of 'meters' and 'feet' are allowed in the geofile")
-
-            data[3] = float(data[3])
-
-            return data
-
-        except BaseException:
-            logger.exception("ok")
-            raise ValueError("Could not open geofile: {!s}".format(geofile))
+                raise ValueError("Only units of 'meters' or 'feet' are allowed in the config file")
+            self.grid_units = grid_units
+        except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+            raise ValueError(e.message)
 
 
 def parse(namfilename, packages):
