@@ -322,6 +322,9 @@ class ModflowOutput(object):
             else:
                 raise ValueError("Only units of 'meters' or 'feet' are allowed in the config file")
             self.grid_units = grid_units
+
+            self.precision = config.get('general', 'precision')
+
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
             raise ValueError(e.message)
 
