@@ -18,6 +18,7 @@ plt.ioff()
 from pygc import great_circle
 
 from flopy.modflow.mf import Modflow
+import flopy.utils.binaryfile as flopy_binary
 
 import netCDF4
 
@@ -52,7 +53,7 @@ class ModflowOutput(object):
 
         # BAS
         try:
-            self.bas = self.mf.get_package('BAS')
+            self.bas = self.mf.get_package('BAS6')
             assert self.bas is not None
         except AssertionError:
             logger.warning("BAS file could not be found.")
@@ -78,9 +79,11 @@ class ModflowOutput(object):
             if self.bas is not None:
                 self.fills.append(self.bas.hnoflo)
             else:
+                logger.warning("No BAS file available, using default 'hnoflow' value of -999.99")
                 self.fills.append(-999.99)
             # hdry
             if self.lpf is not None:
+                logger.warning("No LPF file available, using default 'hdry' value of -1e30")
                 self.fills.append(self.lpf.hdry)
             else:
                 self.fills.append(-1e30)
@@ -190,6 +193,32 @@ class ModflowOutput(object):
         plt.show()
 
     def to_netcdf(self, output_file):
+
+        headfile = tuple()
+        budfile  = tuple()
+
+        # Find output files we want to process
+        for u, f, b in zip(self.mf.external_units, self.mf.external_fnames, self.mf.external_binflag):
+            _, ext = os.path.splitext(f)
+            if ext == ".bud":
+                budfile = (u, f, b)
+            if ext == ".bhd":
+                headfile = (u, f, b)
+
+        if headfile:
+            with LoggingTimer("Loading head file", logger.info):
+                head_obj = flopy_binary.HeadFile(headfile[1], precision=self.precision)
+        else:
+            logger.warning("No Headfile found")
+
+
+        if budfile:
+            with LoggingTimer("Loading cell budget file", logger.info):
+                cell_obj = flopy_binary.CellBudgetFile(budfile[1], precision=self.precision)
+        else:
+            logger.warning("No Budfile found")
+
+
         with LoggingTimer("Setting up NetCDF file", logger.info):
             # Metadata
             t_size = 2
