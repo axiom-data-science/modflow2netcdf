@@ -6,4 +6,4 @@ rotation: 0
 units:    ft
 
 [general]
-precision:  double
+precision: double

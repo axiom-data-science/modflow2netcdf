@@ -44,7 +44,7 @@ def main(name_file, config_file, action, output=None, verbose=None):
         logger.error("The 'action' paramter must be 'plot' or 'netcdf'")
         return
 
-    mo = ModflowOutput(name_file, geofile=config_file)
+    mo = ModflowOutput(name_file, config_file=config_file)
     if action == "plot":
         mo.to_plot()
     else:

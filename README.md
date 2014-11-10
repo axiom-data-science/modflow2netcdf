@@ -88,3 +88,13 @@ units:    ft          ; Units of measurment in output ('meters', 'm', 'feet', 'f
 precision:  single    ; If the model was run with single or double precision. 'single' or 'double'.
 ```
 
+
+#### Testing
+
+Testing is done through `pytest` excecuted in the root of the source code.
+
+```bash
+python -m pytest
+```
+
+To run the tests for the Denver Basin, the output files must be present in the `modflow2netcdf/tests/resources/colorado` directory.  Output can be downloaded from http://pubs.usgs.gov/pp/1770/.  Copy all files from `C-Transient-final/Calibrated_model/` into the `modflow2netcdf/tests/resources/colorado` folder.

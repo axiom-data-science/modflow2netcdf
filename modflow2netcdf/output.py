@@ -60,7 +60,7 @@ class ModflowOutput(object):
 
         # LPF
         try:
-            self.bas = self.mf.get_package('LPF')
+            self.lpf = self.mf.get_package('LPF')
             assert self.bas is not None
         except AssertionError:
             logger.warning("LPF file could not be found.")
@@ -70,6 +70,8 @@ class ModflowOutput(object):
             self.parse_config_file(config_file)
         self.get_coordinates()
 
+        self.fills = self.get_fill_values()
+
     def get_fill_values(self):
 
         fills = []
@@ -77,25 +79,27 @@ class ModflowOutput(object):
         with LoggingTimer("Retrieving fill values", logger.info):
             # hnoflo
             if self.bas is not None:
-                self.fills.append(self.bas.hnoflo)
+                fills.append(self.bas.hnoflo)
             else:
                 logger.warning("No BAS file available, using default 'hnoflow' value of -999.99")
-                self.fills.append(-999.99)
+                fills.append(-999.99)
             # hdry
             if self.lpf is not None:
                 logger.warning("No LPF file available, using default 'hdry' value of -1e30")
-                self.fills.append(self.lpf.hdry)
+                fills.append(self.lpf.hdry)
             else:
-                self.fills.append(-1e30)
+                fills.append(-1e30)
         return fills
 
     def get_coordinates(self):
         y, x, z = self.dis.get_node_coordinates()
-        #y = y[::-1]
+
+        # Compute grid from top left corner, so switch Y back around
+        y = y[::-1]
 
         # Make Z negative (down)
         z = z*-1.
-        # Do we need to convert the y axis to cartisian?  I believe we do...
+        # Do we need to convert the z axis to cartisian?  I believe we do...
         z = z[:,:,::-1]
 
         # Convert distances to grid cell centers (from origin) to meters
@@ -119,9 +123,6 @@ class ModflowOutput(object):
                 row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180)
                 notrotated_xs = np.append(notrotated_xs, row["longitude"])
                 notrotated_ys = np.append(notrotated_ys, row["latitude"])
-            # Reshape
-            notrotated_xs = notrotated_xs.reshape(self.dis.nrow, self.dis.ncol)
-            notrotated_ys = notrotated_ys.reshape(self.dis.nrow, self.dis.ncol)
 
         if self.grid_rotation != 0:
             with LoggingTimer("Computing rotated output grid", logger.info):
@@ -134,34 +135,76 @@ class ModflowOutput(object):
                     row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+self.grid_rotation)
                     rotated_xs = np.append(rotated_xs, row["longitude"])
                     rotated_ys = np.append(rotated_ys, row["latitude"])
-                # Reshape
-                rotated_xs = rotated_xs.reshape(self.dis.nrow, self.dis.ncol)
-                rotated_ys = rotated_ys.reshape(self.dis.nrow, self.dis.ncol)
         else:
             rotated_ys = notrotated_ys
             rotated_xs = notrotated_xs
 
         self.origin_x = known_x
         self.origin_y = known_y
-        self.no_rotation_xs = notrotated_xs
-        self.no_rotation_ys = notrotated_ys
-        self.xs = rotated_xs
-        self.ys = rotated_ys
+        self.no_rotation_xs = notrotated_xs.reshape(self.dis.ncol, self.dis.nrow).T
+        self.no_rotation_ys = notrotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
+        self.xs = rotated_xs.reshape(self.dis.ncol, self.dis.nrow).T
+        self.ys = rotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
         self.zs = z
 
+    def get_output_objects(self):
+        headfile = tuple()
+        cellfile = tuple()
+
+        # Find output files we want to process
+        for u, f, b in zip(self.mf.external_units, self.mf.external_fnames, self.mf.external_binflag):
+            _, ext = os.path.splitext(f)
+            if ext == ".bud":
+                cellfile = (u, f, b)
+            elif ext == ".bhd":
+                headfile = (u, f, b)
+            else:
+                pass
+
+        # Headfile
+        head_obj = None
+        if headfile:
+            with LoggingTimer("Loading head file (.bud)", logger.info):
+                head_obj = flopy_binary.HeadFile(headfile[1], precision=self.precision)
+        else:
+            logger.warning("No Headfile found")
+
+        # Cell budget file
+        cell_obj = None
+        if cellfile:
+            with LoggingTimer("Loading cell budget file (.bhd)", logger.info):
+                cell_obj = flopy_binary.CellBudgetFile(cellfile[1], precision=self.precision)
+        else:
+            logger.warning("No Budfile found")
+
+        return dict(head_obj=head_obj,
+                    cell_obj=cell_obj)
+
     def to_plot(self):
+
+        fillvalue = -9999.9
+
+        outputs = self.get_output_objects()
+        head_obj = outputs["head_obj"]
+        cell_obj = outputs["cell_obj"]
+
         # Setup figure
         with LoggingTimer("Plotting", logger.info):
             fig = plt.figure()
 
             vertical_layers = self.zs.shape[0]
+            time_slices = 0
+            if head_obj:
+                times = head_obj.get_times()
+                # Show just one timestep per layer (the last)
+                time_slices = vertical_layers
 
             minx = min(np.min(self.xs), np.min(self.no_rotation_xs))-0.025
             miny = min(np.min(self.ys), np.min(self.no_rotation_ys))-0.025
             maxx = max(np.max(self.xs), np.max(self.no_rotation_xs))+0.025
             maxy = max(np.max(self.ys), np.max(self.no_rotation_ys))+0.025
 
-            before = fig.add_subplot(vertical_layers + 1, 2, 1)
+            before = fig.add_subplot(time_slices + 2, 2, 1)
             before.set_title("Grid")
             before.set_xlim(left=minx, right=maxx)
             before.set_ylim(bottom=miny, top=maxy)
@@ -169,7 +212,7 @@ class ModflowOutput(object):
             before.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
             before.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
 
-            after = fig.add_subplot(vertical_layers + 1, 2, 2)
+            after = fig.add_subplot(time_slices + 2, 2, 2)
             after.set_title("Rotated")
             after.set_xlim(left=minx, right=maxx)
             after.set_ylim(bottom=miny, top=maxy)
@@ -183,47 +226,33 @@ class ModflowOutput(object):
             maxx = np.max(self.xs)+0.025
             maxy = np.max(self.ys)+0.025
 
-            for k in range(vertical_layers):
-                after = fig.add_subplot(vertical_layers + 1, 2, k+3)
-                after.set_title("Vertical Layer {!s}".format(k))
-                after.set_xlim(left=minx, right=maxx)
-                after.set_ylim(bottom=miny, top=maxy)
-                after.pcolor(self.xs, self.ys, self.zs[k,:,:])
+            if head_obj:
+                for k in range(time_slices):
+                    head = fig.add_subplot(time_slices + 2, 2, k+3)
+                    head.set_title("Vertical Layer {!s}".format(k))
+                    head.set_xlim(left=minx, right=maxx)
+                    head.set_ylim(bottom=miny, top=maxy)
+                    head_array = head_obj.get_data(totim=times[-1])
+                    for f in self.fills:
+                        head_array[head_array==f] = fillvalue
+                    head_array[head_array<=-1e15] = fillvalue
+                    head.pcolor(self.xs, self.ys, head_array[k, :, :])
 
         plt.show()
 
     def to_netcdf(self, output_file):
 
-        headfile = tuple()
-        budfile  = tuple()
+        fillvalue = -9999.9
 
-        # Find output files we want to process
-        for u, f, b in zip(self.mf.external_units, self.mf.external_fnames, self.mf.external_binflag):
-            _, ext = os.path.splitext(f)
-            if ext == ".bud":
-                budfile = (u, f, b)
-            if ext == ".bhd":
-                headfile = (u, f, b)
-
-        if headfile:
-            with LoggingTimer("Loading head file", logger.info):
-                head_obj = flopy_binary.HeadFile(headfile[1], precision=self.precision)
-        else:
-            logger.warning("No Headfile found")
-
-
-        if budfile:
-            with LoggingTimer("Loading cell budget file", logger.info):
-                cell_obj = flopy_binary.CellBudgetFile(budfile[1], precision=self.precision)
-        else:
-            logger.warning("No Budfile found")
+        outputs = self.get_output_objects()
+        head_obj = outputs["head_obj"]
+        cell_obj = outputs["cell_obj"]
 
 
         with LoggingTimer("Setting up NetCDF file", logger.info):
+
             # Metadata
-            t_size = 2
             z_size, x_size, y_size = self.zs.shape
-            t_chunk = min(t_size, 100)
             x_chunk = x_size / 2.
             y_chunk = y_size / 2.
             z_chunk = 1
@@ -240,18 +269,9 @@ class ModflowOutput(object):
             nc.setncattr("featureType", "Grid")
 
             # Dimensions
-            nc.createDimension("time", t_size)
             nc.createDimension('x', x_size)
             nc.createDimension('y', y_size)
             nc.createDimension('layer', z_size)
-
-            # Time
-            time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
-            time.units          = "seconds since 1970-01-01T00:00:00Z"
-            time.standard_name  = "time"
-            time.long_name      = "time of measurement"
-            time.calendar       = "gregorian"
-            time[:] = np.asarray([0, 3600])
 
             # Metadata variables
             crs = nc.createVariable("crs", "i4")
@@ -261,7 +281,7 @@ class ModflowOutput(object):
             crs.inverse_flattening  = float(298.257223563)
 
             # Latitude
-            lat = nc.createVariable('latitude', 'f8', ('y', 'x',), chunksizes=(y_chunk, x_chunk,))
+            lat = nc.createVariable('latitude', 'f8', ('x', 'y',), chunksizes=(y_chunk, x_chunk,))
             lat.units         = "degrees_north"
             lat.standard_name = "latitude"
             lat.long_name     = "latitude"
@@ -269,7 +289,7 @@ class ModflowOutput(object):
             lat[:]            = self.ys
 
             # Longitude
-            lon = nc.createVariable('longitude', 'f8', ('y', 'x',), chunksizes=(y_chunk, x_chunk,))
+            lon = nc.createVariable('longitude', 'f8', ('x', 'y',), chunksizes=(y_chunk, x_chunk,))
             lon.units         = "degrees_east"
             lon.standard_name = "longitude"
             lon.long_name     = "longitude"
@@ -277,7 +297,7 @@ class ModflowOutput(object):
             lon[:]            = self.xs
 
             # Elevation
-            ele = nc.createVariable('elevation', 'f8', ('layer', 'y', 'x',), chunksizes=(z_chunk, y_chunk, x_chunk,))
+            ele = nc.createVariable('elevation', 'f8', ('layer', 'x', 'y',), chunksizes=(z_chunk, x_chunk, y_chunk,))
             ele.units         = "meters"
             ele.standard_name = "elevation"
             ele.long_name     = "elevation"
@@ -302,13 +322,34 @@ class ModflowOutput(object):
             exp._CoordinateTransformType = "vertical"
             exp._CoordinateAxes          = "layer"
 
-            # Dummy variable (for now)
-            d1 = nc.createVariable('dummy1', 'f4', ('time', 'layer', 'y', 'x',), chunksizes=(t_chunk, z_chunk, y_chunk, x_chunk,))
-            d1.units         = "foo"
-            d1.standard_name = "bar"
-            d1.long_name     = "foo bar"
-            d1.coordinates   = "time layer latitude longitude"
-            d1[:]            = np.random.random((t_size, z_size, y_size, x_size))
+            # Headfile
+            if head_obj is not None:
+
+                # Time
+                times = head_obj.get_times()
+                t_size = len(times)
+                t_chunk = min(t_size, 100)
+
+                nc.createDimension("time", t_size)
+                time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
+                time.units          = "seconds since 1970-01-01T00:00:00Z"
+                time.standard_name  = "time"
+                time.long_name      = "time of measurement"
+                time.calendar       = "gregorian"
+                time[:] = np.asarray(times)
+
+                head = nc.createVariable('heads', 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,))
+                head.units         = "units of head"
+                head.standard_name = "heads standard name"
+                head.long_name     = "heads long name"
+                head.coordinates   = "time layer latitude longitude"
+
+                for i, time in enumerate(times):
+                    head_array = head_obj.get_data(totim=time)
+                    for f in self.fills:
+                        head_array[head_array==f] = fillvalue
+                    head_array[head_array<=-1e15] = fillvalue
+                    head[i, :, :, :] = head_array
 
         with LoggingTimer("Writing NetCDF file", logger.info):
             nc.sync()

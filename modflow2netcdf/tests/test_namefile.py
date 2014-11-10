@@ -58,3 +58,10 @@ class TestOutput(unittest.TestCase):
         mf.to_netcdf(output_file=self.output_file)
         nc = netCDF4.Dataset(self.output_file)
         assert nc is not None
+
+    def test_colorado_plot(self):
+        colorado_nam = os.path.join(os.path.dirname(__file__), "resources", "colorado", "mod16_ssfix_wel2.nam")
+        colorado_geo = os.path.join(os.path.dirname(__file__), "resources", "colorado", "colorado.geo")
+        mf = ModflowOutput(colorado_nam, config_file=colorado_geo, exe_name="mf2005", verbose=False)
+        assert mf is not None
+        mf.to_plot()
