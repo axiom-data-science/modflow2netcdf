@@ -85,9 +85,9 @@ class ModflowOutput(object):
                 fills.append(-999.99)
             # hdry
             if self.lpf is not None:
-                logger.warning("No LPF file available, using default 'hdry' value of -1e30")
                 fills.append(self.lpf.hdry)
             else:
+                logger.warning("No LPF file available, using default 'hdry' value of -1e30")
                 fills.append(-1e30)
         return fills
 
@@ -182,8 +182,6 @@ class ModflowOutput(object):
 
     def to_plot(self):
 
-        fillvalue = -9999.9
-
         outputs = self.get_output_objects()
         head_obj = outputs["head_obj"]
         cell_obj = outputs["cell_obj"]
@@ -193,18 +191,21 @@ class ModflowOutput(object):
             fig = plt.figure()
 
             vertical_layers = self.zs.shape[0]
-            time_slices = 0
+            cell_variables = 0
+            times = []
             if head_obj:
                 times = head_obj.get_times()
-                # Show just one timestep per layer (the last)
-                time_slices = vertical_layers
+            elif cell_obj:
+                if not times:
+                    times = cell_obj.get_times()
+                cell_variables = cell_obj.unique_record_names()
 
             minx = min(np.min(self.xs), np.min(self.no_rotation_xs))-0.025
             miny = min(np.min(self.ys), np.min(self.no_rotation_ys))-0.025
             maxx = max(np.max(self.xs), np.max(self.no_rotation_xs))+0.025
             maxy = max(np.max(self.ys), np.max(self.no_rotation_ys))+0.025
 
-            before = fig.add_subplot(time_slices + 2, 2, 1)
+            before = fig.add_subplot(vertical_layers + cell_variables + 2, 3, 1)
             before.set_title("Grid")
             before.set_xlim(left=minx, right=maxx)
             before.set_ylim(bottom=miny, top=maxy)
@@ -212,7 +213,7 @@ class ModflowOutput(object):
             before.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
             before.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
 
-            after = fig.add_subplot(time_slices + 2, 2, 2)
+            after = fig.add_subplot(vertical_layers + cell_variables + 2, 3, 2)
             after.set_title("Rotated")
             after.set_xlim(left=minx, right=maxx)
             after.set_ylim(bottom=miny, top=maxy)
@@ -226,17 +227,46 @@ class ModflowOutput(object):
             maxx = np.max(self.xs)+0.025
             maxy = np.max(self.ys)+0.025
 
-            if head_obj:
-                for k in range(time_slices):
-                    head = fig.add_subplot(time_slices + 2, 2, k+3)
-                    head.set_title("Vertical Layer {!s}".format(k))
+            k = 0
+            if head_obj is not None:
+                head_array = head_obj.get_data(totim=times[-1])
+                for f in self.fills:
+                    head_array = np.ma.masked_where(head_array == f, head_array)
+                head_array = np.ma.masked_where(head_array <= -1e15, head_array)
+                for k in range(vertical_layers):
+                    head = fig.add_subplot(vertical_layers + cell_variables + 2, 3, k+3)
+                    head.set_title("HEADS - Vertical Layer {!s}".format(k))
                     head.set_xlim(left=minx, right=maxx)
                     head.set_ylim(bottom=miny, top=maxy)
-                    head_array = head_obj.get_data(totim=times[-1])
+                    h = head.pcolormesh(self.xs, self.ys, head_array[k, :, ::-1])
+                    plt.colorbar(h)
+                head_obj.close()
+
+            if cell_obj is not None:
+                for j, var_name in enumerate(cell_obj.unique_record_names()):
+                    cell = fig.add_subplot(vertical_layers + cell_variables + 2, 3, k+3+j)
+                    cell.set_title("{!s} - Vertical Layer 0".format(var_name.strip()))
+                    cell.set_xlim(left=minx, right=maxx)
+                    cell.set_ylim(bottom=miny, top=maxy)
+                    cell_array = cell_obj.get_data(text=var_name, totim=times[-1], full3D=True)
+                    if isinstance(cell_array, list) and len(cell_array) == 1:
+                            cell_array = cell_array[0]
+                    elif isinstance(cell_array, list) and len(cell_array) > 1:
+                        # Sum values if there are more than one in a grid cell.
+                        # This was suggested by Chris L. on the 12/22/14 call.
+                        cell_array = np.sum(cell_array, axis=0)
+                    elif isinstance(cell_array, list) and len(cell_array) == 0:
+                        # No data returned
+                        logger.warning("No data returned for '{!s}' at vertical layer 0 and time index 0.".format(var_name.strip()))
+                        cell_array = np.ma.zeros((self.dis.nrow, self.dis.ncol))
+                        cell_array.mask = True
                     for f in self.fills:
-                        head_array[head_array==f] = fillvalue
-                    head_array[head_array<=-1e15] = fillvalue
-                    head.pcolor(self.xs, self.ys, head_array[k, :, :])
+                        cell_array = np.ma.masked_where(cell_array == f, cell_array)
+                    cell_array = np.ma.masked_where(cell_array <= -1e15, cell_array)
+                    cell_array = np.ma.masked_where(cell_array == 0., cell_array)
+                    c = cell.pcolor(self.xs, self.ys, cell_array[0, :, ::-1])
+                    plt.colorbar(c)
+                cell_obj.close()
 
         plt.show()
 
@@ -247,7 +277,6 @@ class ModflowOutput(object):
         outputs = self.get_output_objects()
         head_obj = outputs["head_obj"]
         cell_obj = outputs["cell_obj"]
-
 
         with LoggingTimer("Setting up NetCDF file", logger.info):
 
@@ -281,7 +310,7 @@ class ModflowOutput(object):
             crs.inverse_flattening  = float(298.257223563)
 
             # Latitude
-            lat = nc.createVariable('latitude', 'f8', ('x', 'y',), chunksizes=(y_chunk, x_chunk,))
+            lat = nc.createVariable('latitude', 'f8', ('x', 'y',), chunksizes=(x_chunk, y_chunk,))
             lat.units         = "degrees_north"
             lat.standard_name = "latitude"
             lat.long_name     = "latitude"
@@ -289,7 +318,7 @@ class ModflowOutput(object):
             lat[:]            = self.ys
 
             # Longitude
-            lon = nc.createVariable('longitude', 'f8', ('x', 'y',), chunksizes=(y_chunk, x_chunk,))
+            lon = nc.createVariable('longitude', 'f8', ('x', 'y',), chunksizes=(x_chunk, y_chunk,))
             lon.units         = "degrees_east"
             lon.standard_name = "longitude"
             lon.long_name     = "longitude"
@@ -297,7 +326,7 @@ class ModflowOutput(object):
             lon[:]            = self.xs
 
             # Elevation
-            ele = nc.createVariable('elevation', 'f8', ('layer', 'x', 'y',), chunksizes=(z_chunk, x_chunk, y_chunk,))
+            ele = nc.createVariable('elevation', 'f8', ('layer', 'x', 'y',), chunksizes=(z_chunk, x_chunk, y_chunk,), zlib=True)
             ele.units         = "meters"
             ele.standard_name = "elevation"
             ele.long_name     = "elevation"
@@ -322,41 +351,80 @@ class ModflowOutput(object):
             exp._CoordinateTransformType = "vertical"
             exp._CoordinateAxes          = "layer"
 
-            # Headfile
-            if head_obj is not None:
-
-                # Time
-                times = head_obj.get_times()
-                t_size = len(times)
-                t_chunk = min(t_size, 100)
-
-                nc.createDimension("time", t_size)
+            def create_time(netcdf_file, time_values, t_chunk):
+                nc.createDimension("time", len(time_values))
                 time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
                 time.units          = "seconds since 1970-01-01T00:00:00Z"
                 time.standard_name  = "time"
                 time.long_name      = "time of measurement"
                 time.calendar       = "gregorian"
-                time[:] = np.asarray(times)
+                time[:] = np.asarray(time_values)
 
-                head = nc.createVariable('heads', 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,))
+            # Headfile
+            if head_obj is not None:
+
+                # Time
+                time_values = head_obj.get_times()
+                t_chunk = min(len(time_values), 100)
+                create_time(nc, time_values, t_chunk)
+
+                head = nc.createVariable('heads', 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
                 head.units         = "units of head"
                 head.standard_name = "heads standard name"
                 head.long_name     = "heads long name"
                 head.coordinates   = "time layer latitude longitude"
 
-                for i, time in enumerate(times):
+                for i, time in enumerate(time_values):
                     head_array = head_obj.get_data(totim=time)
                     for f in self.fills:
-                        head_array[head_array==f] = fillvalue
-                    head_array[head_array<=-1e15] = fillvalue
-                    head[i, :, :, :] = head_array
+                        head_array[head_array == f] = fillvalue
+                    head_array[head_array <= -1e15] = fillvalue
+                    head[i, :, :, :] = head_array[:, :, ::-1]
+
+                head_obj.close()
+
+            if cell_obj is not None:
+                if nc.variables.get("time") is None:
+                     # Time
+                    time_values = cell_obj.get_times()
+                    t_chunk = min(len(time_values), 100)
+                    create_time(nc, time_values, t_chunk)
+
+                for j, var_name in enumerate(cell_obj.unique_record_names()):
+                    standard_var_name = var_name.strip().lower().replace(' ', '_')
+                    var = nc.createVariable(standard_var_name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
+                    var.units         = "units of var"
+                    var.standard_name = standard_var_name
+                    var.long_name     = standard_var_name.upper()
+                    var.coordinates   = "time layer latitude longitude"
+
+                    for i, time in enumerate(time_values):
+                        cell_array = cell_obj.get_data(text=var_name, totim=time, full3D=True)
+                        if isinstance(cell_array, list) and len(cell_array) == 1:
+                            cell_array = cell_array[0]
+                        elif isinstance(cell_array, list) and len(cell_array) > 1:
+                            # Sum values if there are more than one in a grid cell.
+                            # This was suggested by Chris L. on the 12/22/14 call.
+                            cell_array = np.sum(cell_array, axis=0)
+                        elif isinstance(cell_array, list) and len(cell_array) == 0:
+                            # No data returned
+                            logger.warning("No data returned for '{!s}' at time index {!s} ({!s}).".format(var_name.strip(), i, time))
+                            cell_array = np.ma.zeros(var.shape[1:])
+                            cell_array.mask = True
+
+                        for f in self.fills:
+                            cell_array[cell_array == f] = fillvalue
+                        cell_array[cell_array <= -1e15] = fillvalue
+                        cell_array[cell_array == 0.] = fillvalue
+                        var[i, :, :, :] = cell_array[:, :, ::-1]
+
+                cell_obj.close()
 
         with LoggingTimer("Writing NetCDF file", logger.info):
             nc.sync()
             nc.close()
 
         return nc
-
 
     def parse_config_file(self, config_file):
         if config_file is None:

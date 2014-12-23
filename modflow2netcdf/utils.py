@@ -1,5 +1,6 @@
 import time
 
+
 class LoggingTimer(object):
     def __init__(self, message, logger_func=None):
         self.message     = message
