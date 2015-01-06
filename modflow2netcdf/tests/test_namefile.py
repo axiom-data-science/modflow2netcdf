@@ -58,6 +58,7 @@ class TestOutput(unittest.TestCase):
         mf.to_netcdf(output_file=self.output_file)
         nc = netCDF4.Dataset(self.output_file)
         assert nc is not None
+        assert nc.variables.get("time").units == "days since 1970-01-01T00:00:00Z"
 
     def test_colorado_plot(self):
         colorado_nam = os.path.join(os.path.dirname(__file__), "resources", "colorado", "mod16_ssfix_wel2.nam")

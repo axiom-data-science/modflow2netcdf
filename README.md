@@ -64,28 +64,36 @@ A `mod2net` configuration file should be formated as so:
 
 ###### WGS84 Configuration
 ```ini
-[grid]
+[general]
+precision:  double    ; If the model was run with single or double precision. 'single' or 'double'.
+
+[space]
 crs:      4326        ; EPSG code of grid projection
 origin_x: -72         ; Longitude of upper grid left point (origin)
 origin_y: 41.44       ; Latitude of uppper grid left point (origin)
 rotation: 45          ; True north based grid rotation angle (clockwise from true north)
 units:    m           ; Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
 
-[general]
-precision:  double    ; If the model was run with single or double precision. 'single' or 'double'.
+[time]
+units:    days
+base:     2006-06-01 00:00:00    ; Assumed UTC if no timezone information is specified
 ```
 
 ###### Web-mercator Configuration
 ```ini
-[grid]
+[general]
+precision:  single    ; If the model was run with single or double precision. 'single' or 'double'.
+
+[space]
 crs:      3857        ; EPSG code of grid projection
 origin_x: -8012405.88 ; Longitude of upper grid left point (origin)
 origin_y: 5078408.56  ; Latitude of uppper grid left point (origin)
 rotation: 0           ; True north based grid rotation angle (clockwise from true north)
 units:    ft          ; Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
 
-[general]
-precision:  single    ; If the model was run with single or double precision. 'single' or 'double'.
+[time]
+units:    days
+base:     1992-01-06 06:00:00 -0500
 ```
 
 

@@ -21,6 +21,8 @@ from flopy.modflow.mf import Modflow
 import flopy.utils.binaryfile as flopy_binary
 
 import netCDF4
+import pytz
+from dateutil.parser import parse as date_parse
 
 from modflow2netcdf import logger
 from modflow2netcdf.utils import LoggingTimer
@@ -354,7 +356,7 @@ class ModflowOutput(object):
             def create_time(netcdf_file, time_values, t_chunk):
                 nc.createDimension("time", len(time_values))
                 time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
-                time.units          = "seconds since 1970-01-01T00:00:00Z"
+                time.units          = "{0} since {1}".format(self.time_units, self.base_date.strftime("%Y-%m-%dT%H:%M:%SZ"))
                 time.standard_name  = "time"
                 time.long_name      = "time of measurement"
                 time.calendar       = "gregorian"
@@ -437,19 +439,19 @@ class ModflowOutput(object):
             raise ValueError("Bad configuration file.  Please check the contents. {!s}.".format(e.message))
 
         try:
-            self.grid_x        = config.getfloat('grid', 'origin_x')
-            self.grid_y        = config.getfloat('grid', 'origin_y')
-            self.grid_rotation = config.getfloat('grid', 'rotation')
+            self.grid_x        = config.getfloat('space', 'origin_x')
+            self.grid_y        = config.getfloat('space', 'origin_y')
+            self.grid_rotation = config.getfloat('space', 'rotation')
 
             # CRS
-            config_crs = config.getint('grid', 'crs')
+            config_crs = config.getint('space', 'crs')
             try:
                 self.grid_crs = Proj(init='epsg:{0!s}'.format(config_crs))
             except RuntimeError:
                 raise ValueError("Could not understand EPSG code '{!s}' from config file.".format(config_crs))
 
             # Units
-            grid_units    = config.get('grid', 'units')
+            grid_units = config.get('space', 'units')
             if grid_units is None:
                 logger.info("Defaulting to 'meters' as the grid units")
                 grid_units = "meters"
@@ -462,6 +464,20 @@ class ModflowOutput(object):
             self.grid_units = grid_units
 
             self.precision = config.get('general', 'precision')
+
+            # Unit of time
+            self.time_units = config.get('time', 'units')
+
+            # Base unit of time
+            try:
+                base_date = date_parse(config.get('time', 'base'))
+            except ValueError:
+                raise ValueError("Could not parse the base date '{!s}'.".format(base_date))
+            else:
+                if base_date.tzinfo is None:
+                    logger.warning("No timezone information could be extracted from the base date. Assuming UTC.")
+                    base_date = base_date.replace(tzinfo=pytz.utc)
+                self.base_date = base_date.astimezone(pytz.utc)
 
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
             raise ValueError(e.message)
