@@ -100,7 +100,7 @@ class ModflowOutput(object):
         # Make Z negative (down)
         z = z*-1.
         # Do we need to convert the z axis to cartisian?  I believe we do...
-        z = z[:,:,::-1]
+        z = z[:, :, ::-1]
 
         # Convert distances to grid cell centers (from origin) to meters
         if self.grid_units == 'feet':
@@ -465,52 +465,3 @@ class ModflowOutput(object):
 
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
             raise ValueError(e.message)
-
-
-def parse(namfilename, packages):
-    '''
-    function to parse the nam file and return a dictionary with types, names, units and handles
-    '''
-    # add the .nam extension to namfilename if missing
-    if os.path.splitext(namfilename)[-1] != ".nam":
-        namfilename += '.nam'
-
-    # inititate the ext_unit_dict dictionary
-    ext_unit_dict = dict()
-
-    logger.info("Parsing the namefile --> {0:s}".format(namefilename))
-    logger.info("Setting filehandles:")
-
-    with open(namfilename, 'r') as f:
-        for line in f.readlines():
-            line = line.strip().split()
-
-            # Skip empty lines
-            if not line:
-                continue
-            # Skip comments
-            if line[0] == '#':
-                continue
-            # Skip lines that don't have an integer as the second value
-            try:
-                int(line[1])
-            except ValueError:
-                continue
-
-            # Figure out which mode to open the file in (ASCII or Binary)
-            filemode = 'r'
-            if line[0].upper() == 'DATA(BINARY)':
-                filemode = 'rb'
-
-            filename = os.path.join(os.path.dirname(namfilename), line[2])
-            try:
-                with open(filename, filemode) as f:
-                    # Make sure it is a valid file
-                    f.read()
-                ext_unit_dict[int(line[1])] = NameData(line[0], filename, filemode, packages)
-            except BaseException:
-                logger.error("Could not open referenced file --> {0:s}".format(line[2]))
-                continue
-
-    return ext_unit_dict
-
