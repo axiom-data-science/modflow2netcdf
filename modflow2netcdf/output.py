@@ -362,6 +362,14 @@ class ModflowOutput(object):
                 time.calendar       = "gregorian"
                 time[:] = np.asarray(time_values)
 
+            def create_variable(netcdf_file, name, attributes, t_chunk):
+                var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
+                var.units         = "{0}^3/time".format(self.grid_units)
+                var.standard_name = standard_var_name
+                var.long_name     = standard_var_name.upper()
+                var.coordinates   = "time layer latitude longitude"
+                return var
+
             # Headfile
             if head_obj is not None:
 
@@ -371,9 +379,9 @@ class ModflowOutput(object):
                 create_time(nc, time_values, t_chunk)
 
                 head = nc.createVariable('heads', 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
-                head.units         = "units of head"
-                head.standard_name = "heads standard name"
-                head.long_name     = "heads long name"
+                head.units         = "{0}^3/time".format(self.grid_units)
+                head.standard_name = "heads"
+                head.long_name     = "heads"
                 head.coordinates   = "time layer latitude longitude"
 
                 for i, time in enumerate(time_values):
@@ -394,11 +402,22 @@ class ModflowOutput(object):
 
                 for j, var_name in enumerate(cell_obj.unique_record_names()):
                     standard_var_name = var_name.strip().lower().replace(' ', '_')
-                    var = nc.createVariable(standard_var_name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
-                    var.units         = "units of var"
-                    var.standard_name = standard_var_name
-                    var.long_name     = standard_var_name.upper()
-                    var.coordinates   = "time layer latitude longitude"
+                    attrs = dict(units="{0}^3/time".format(self.grid_units),
+                                 standard_name=standard_var_name,
+                                 long_name=standard_var_name.upper().replace("_", ""),
+                                 coordinates="time layer latitude longitude")
+                    var = create_variable(nc, standard_var_name, attrs, t_chunk)
+
+                    # Average the flows onto the grid center
+                    centered_variable = None
+                    if standard_var_name in ["flow_right_face", "flow_front_face", "flow_lower_face"]:
+                        vname = '{0}_centered'.format(standard_var_name)
+                        attrs = dict(units="{0}^3/time".format(self.grid_units),
+                                     standard_name=vname,
+                                     long_name=vname.upper().replace("_", ""),
+                                     coordinates="time layer latitude longitude")
+                        centered_variable = create_variable(nc, vname, attrs, t_chunk)
+                        centered_variable[:] = fillvalue
 
                     for i, time in enumerate(time_values):
                         cell_array = cell_obj.get_data(text=var_name, totim=time, full3D=True)
@@ -419,6 +438,26 @@ class ModflowOutput(object):
                         cell_array[cell_array <= -1e15] = fillvalue
                         cell_array[cell_array == 0.] = fillvalue
                         var[i, :, :, :] = cell_array[:, :, ::-1]
+
+                        # Average the flows onto the grid center
+                        if centered_variable is not None:
+                            z, m, n = cell_array.shape
+                            cell_array = cell_array[:, :, ::-1]
+                            if standard_var_name == "FLOW_RIGHT_FACE":
+                                # We lose the first and last columns
+                                centered_variable.standard_name = "grid_directed_groundwater_velocity_in_the_u_direction"
+                                averaged_array = 0.5 * (cell_array[:, :, 0:n-1] + cell_array[:, :, 1:n])
+                                centered_variable[i, :, 1:-1, :] = averaged_array
+                            elif standard_var_name == "FLOW_FRONT_FACE":
+                                # We lose the first and last vertical levels
+                                centered_variable.standard_name = "grid_directed_groundwater_velocity_in_the_w_direction"
+                                averaged_array = 0.5 * (cell_array[0:z-1, :, :] + cell_array[1:z, :, :])
+                                centered_variable[i, 1:-1, :, :] = averaged_array
+                            elif standard_var_name == "FLOW_LOWER_FACE":
+                                # We lose the first and last rows
+                                centered_variable.standard_name = "grid_directed_groundwater_velocity_in_the_v_direction"
+                                averaged_array = 0.5 * (cell_array[:, 0:n-1, :] + cell_array[:, 1:n, :])
+                                centered_variable[i, :, :, 1:-1] = averaged_array
 
                 cell_obj.close()
 
