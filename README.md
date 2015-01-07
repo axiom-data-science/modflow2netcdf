@@ -12,9 +12,12 @@ special care to download the versions that match your version of Python.
   * matplotlib
   * netCDF4
 
-2.  Install `flopy` from http://code.google.com/p/flopy/
-http://code.google.com/p/flopy/
+2.  Install `flopy` (version 3) from https://github.com/modflowpy/flopy
 
+3.  Install the following libraries using `pip install [library]`
+  * pytz
+  * pygc
+  * python-dateutil
 
 ##### Linux (using pip)
 
@@ -30,6 +33,9 @@ http://code.google.com/p/flopy/
   * matplotlib
   * netCDF4
   * flopy
+  * pygc
+  * python-dateutil
+  * pytz
 
 
 ##### Linux (using conda)
@@ -46,6 +52,10 @@ http://code.google.com/p/flopy/
   * matplotlib
   * netCDF4
   * flopy
+  * pygc
+  * python-dateutil
+  * pytz
+
 
 ### Running
 

@@ -1,13 +1,11 @@
 # coding=utf-8
 
 import os
-import math
-from copy import copy
 from datetime import datetime
 
 import ConfigParser
 
-from pyproj import Geod, Proj, transform
+from pyproj import Proj, transform
 import numpy as np
 
 import matplotlib

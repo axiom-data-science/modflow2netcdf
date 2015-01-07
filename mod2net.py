@@ -3,11 +3,8 @@
 
 import os
 import sys
-import json
-import copy
 import logging
 import argparse
-from datetime import datetime
 
 from modflow2netcdf.output import ModflowOutput
 
@@ -39,7 +36,6 @@ def main(name_file, config_file, action, output=None, verbose=None):
         logger.info("Error opening configuration file: {!s}".format(config_file))
         return
 
-
     if action not in ['plot', 'netcdf']:
         logger.error("The 'action' paramter must be 'plot' or 'netcdf'")
         return
@@ -56,8 +52,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('action', action='store', choices=('plot', 'netcdf',))
-
-
 
     parser.add_argument('-n', '--name_file',
                         help="Modflow Namefile (.nam) to load.",
