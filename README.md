@@ -77,6 +77,11 @@ units:    m           ; Units of measurment in output ('meters', 'm', 'feet', 'f
 [time]
 units:    days
 base:     2006-06-01 00:00:00    ; Assumed UTC if no timezone information is specified
+
+[output]
+head:     mymodelrun.hds  ; Optional. Path to the Head output file (relative to config file).
+cbud:     mymodelrun.cbb  ; Optional. Path to the CellBudget output file (relative to config file).
+
 ```
 
 ###### Web-mercator Configuration
@@ -94,6 +99,8 @@ units:    ft          ; Units of measurment in output ('meters', 'm', 'feet', 'f
 [time]
 units:    days
 base:     1992-01-06 06:00:00 -0500
+
+[output]  ; Not needed, the default extensions for the Head (.bhd) and CellBudget (.bud) output files will be assumed.
 ```
 
 

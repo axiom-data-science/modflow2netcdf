@@ -153,7 +153,8 @@ class ModflowOutput(object):
         headfile = tuple()
         cellfile = tuple()
 
-        # Find output files we want to process
+        # Find output files we want to process.  These are the defaults if
+        # no specific file is specified in the configuration
         for u, f, b in zip(self.mf.external_units, self.mf.external_fnames, self.mf.external_binflag):
             _, ext = os.path.splitext(f)
             if ext == ".bud":
@@ -164,20 +165,24 @@ class ModflowOutput(object):
                 pass
 
         # Headfile
-        head_obj = None
-        if headfile:
-            with LoggingTimer("Loading head file (.bud)", logger.info):
+        with LoggingTimer("Loading head file", logger.info):
+            if self.head_file:
+                head_obj = flopy_binary.HeadFile(self.head_file, precision=self.precision)
+            elif headfile:
                 head_obj = flopy_binary.HeadFile(headfile[1], precision=self.precision)
-        else:
-            logger.warning("No Headfile found")
+            else:
+                logger.warning("No Headfile found")
+                head_obj = None
 
         # Cell budget file
-        cell_obj = None
-        if cellfile:
-            with LoggingTimer("Loading cell budget file (.bhd)", logger.info):
+        with LoggingTimer("Loading cell budget file", logger.info):
+            if self.cbud_file:
+                cell_obj = flopy_binary.CellBudgetFile(self.cbud_file, precision=self.precision)
+            elif cellfile:
                 cell_obj = flopy_binary.CellBudgetFile(cellfile[1], precision=self.precision)
-        else:
-            logger.warning("No Budfile found")
+            else:
+                logger.warning("No CellBudget file found")
+                cell_obj = None
 
         return dict(head_obj=head_obj,
                     cell_obj=cell_obj)
@@ -519,4 +524,12 @@ class ModflowOutput(object):
                 self.base_date = base_date.astimezone(pytz.utc)
 
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
-            raise ValueError(e.message)
+            raise ValueError('Configuration file is missing a required section: {0}'.format(e.message))
+
+        # Output files (optional)
+        try:
+            self.cbud_file = os.path.join(os.path.dirname(config_file), config.get('output', 'cbud'))
+            self.head_file = os.path.join(os.path.dirname(config_file), config.get('output', 'head'))
+        except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+            self.cbud_file = None
+            self.head_file = None

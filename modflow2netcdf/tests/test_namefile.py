@@ -66,3 +66,10 @@ class TestOutput(unittest.TestCase):
         mf = ModflowOutput(colorado_nam, config_file=colorado_geo, exe_name="mf2005", verbose=False)
         assert mf is not None
         mf.to_plot()
+
+    def test_freyberg_plot(self):
+        freyberg_nam = os.path.join(os.path.dirname(__file__), "resources", "freyberg", "freyberg.nam")
+        freyberg_geo = os.path.join(os.path.dirname(__file__), "resources", "freyberg", "freyberg.geo")
+        mf = ModflowOutput(freyberg_nam, config_file=freyberg_geo, exe_name="mf2005", verbose=False)
+        assert mf is not None
+        mf.to_plot()
