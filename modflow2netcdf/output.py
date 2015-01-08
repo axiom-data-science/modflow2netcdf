@@ -1,17 +1,13 @@
 # coding=utf-8
 
 import os
+import tempfile
 from datetime import datetime
 
 import ConfigParser
 
 from pyproj import Proj, transform
 import numpy as np
-
-import matplotlib
-matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
-plt.ioff()
 
 from pygc import great_circle
 
@@ -185,95 +181,78 @@ class ModflowOutput(object):
         return dict(head_obj=head_obj,
                     cell_obj=cell_obj)
 
-    def to_plot(self):
+    def to_plot(self, variable=None, level=None, time=None, colormap=None):
 
-        outputs = self.get_output_objects()
-        head_obj = outputs["head_obj"]
-        cell_obj = outputs["cell_obj"]
+        import matplotlib.cm as cm
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d.axes3d import Axes3D
 
-        # Setup figure
-        with LoggingTimer("Plotting", logger.info):
-            fig = plt.figure()
+        if level is not None:
+            try:
+                level = int(level)
+            except ValueError:
+                logger.error("Level must be an integer, defaulting to 0.")
+                level = 0
+        else:
+            level = 0
 
-            vertical_layers = self.zs.shape[0]
-            cell_variables = 0
-            times = []
-            if head_obj:
-                times = head_obj.get_times()
-            elif cell_obj:
-                if not times:
-                    times = cell_obj.get_times()
-                cell_variables = cell_obj.unique_record_names()
+        if time is not None:
+            try:
+                time = int(time)
+            except ValueError:
+                logger.error("Time must be an integer, defaulting to 0.")
+                time = 0
+        else:
+            time = 0
 
-            minx = min(np.min(self.xs), np.min(self.no_rotation_xs))-0.025
-            miny = min(np.min(self.ys), np.min(self.no_rotation_ys))-0.025
-            maxx = max(np.max(self.xs), np.max(self.no_rotation_xs))+0.025
-            maxy = max(np.max(self.ys), np.max(self.no_rotation_ys))+0.025
+        try:
+            _, tmp_file = tempfile.mkstemp(suffix=".nc")
+            self.to_netcdf(output_file=tmp_file)
+            nc = netCDF4.Dataset(tmp_file)
 
-            before = fig.add_subplot(vertical_layers + cell_variables + 2, 3, 1)
-            before.set_title("Grid")
-            before.set_xlim(left=minx, right=maxx)
-            before.set_ylim(bottom=miny, top=maxy)
-            before.pcolor(self.no_rotation_xs, self.no_rotation_ys, np.zeros((self.dis.nrow, self.dis.ncol)))
-            before.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
-            before.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
+            if variable is not None and variable not in nc.variables:
+                raise ValueError("Variable {0} was not found in NetCDF file.  Available variables are: {1}".format(variable, ", ".join([v.name for v in nc.variables])))
 
-            after = fig.add_subplot(vertical_layers + cell_variables + 2, 3, 2)
-            after.set_title("Rotated")
-            after.set_xlim(left=minx, right=maxx)
-            after.set_ylim(bottom=miny, top=maxy)
-            after.pcolor(self.xs, self.ys, np.zeros((self.dis.nrow, self.dis.ncol)))
-            after.plot(self.origin_x, self.origin_y, color='red', linewidth=4, marker='x')
-            after.text(self.origin_x + 0.005, self.origin_y, 'Origin ({!s}, {!s})'.format(round(self.origin_x, 2), round(self.origin_y, 2)), fontsize=10)
+            # Common variables
+            x = nc.variables.get("longitude")[:]
+            y = nc.variables.get("latitude")[:]
+            z = nc.variables.get("elevation")[level, :]
 
-            # Recalculate the bounds for the images so they reference the rotated grid.
-            minx = np.min(self.xs)-0.025
-            miny = np.min(self.ys)-0.025
-            maxx = np.max(self.xs)+0.025
-            maxy = np.max(self.ys)+0.025
+            fig = plt.figure(figsize=(20, 10))
 
-            k = 0
-            if head_obj is not None:
-                head_array = head_obj.get_data(totim=times[-1])
-                for f in self.fills:
-                    head_array = np.ma.masked_where(head_array == f, head_array)
-                head_array = np.ma.masked_where(head_array <= -1e15, head_array)
-                for k in range(vertical_layers):
-                    head = fig.add_subplot(vertical_layers + cell_variables + 2, 3, k+3)
-                    head.set_title("HEADS - Vertical Layer {!s}".format(k))
-                    head.set_xlim(left=minx, right=maxx)
-                    head.set_ylim(bottom=miny, top=maxy)
-                    h = head.pcolormesh(self.xs, self.ys, head_array[k, :, ::-1])
-                    plt.colorbar(h)
-                head_obj.close()
+            if colormap is None:
+                colormap = cm.Reds
 
-            if cell_obj is not None:
-                for j, var_name in enumerate(cell_obj.unique_record_names()):
-                    cell = fig.add_subplot(vertical_layers + cell_variables + 2, 3, k+3+j)
-                    cell.set_title("{!s} - Vertical Layer 0".format(var_name.strip()))
-                    cell.set_xlim(left=minx, right=maxx)
-                    cell.set_ylim(bottom=miny, top=maxy)
-                    cell_array = cell_obj.get_data(text=var_name, totim=times[-1], full3D=True)
-                    if isinstance(cell_array, list) and len(cell_array) == 1:
-                            cell_array = cell_array[0]
-                    elif isinstance(cell_array, list) and len(cell_array) > 1:
-                        # Sum values if there are more than one in a grid cell.
-                        # This was suggested by Chris L. on the 12/22/14 call.
-                        cell_array = np.sum(cell_array, axis=0)
-                    elif isinstance(cell_array, list) and len(cell_array) == 0:
-                        # No data returned
-                        logger.warning("No data returned for '{!s}' at vertical layer 0 and time index 0.".format(var_name.strip()))
-                        cell_array = np.ma.zeros((self.dis.nrow, self.dis.ncol))
-                        cell_array.mask = True
-                    for f in self.fills:
-                        cell_array = np.ma.masked_where(cell_array == f, cell_array)
-                    cell_array = np.ma.masked_where(cell_array <= -1e15, cell_array)
-                    cell_array = np.ma.masked_where(cell_array == 0., cell_array)
-                    c = cell.pcolor(self.xs, self.ys, cell_array[0, :, ::-1])
-                    plt.colorbar(c)
-                cell_obj.close()
+            def plot_thing(rows, columns, spot, camera_height, camera_azimuth):
+                ax = fig.add_subplot(rows, columns, spot, projection='3d')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.view_init(camera_height, camera_azimuth)
+                if variable is None:
+                    ax.set_title('Time: {0} Level: {1}'.format(time, level))
+                    p = ax.plot_surface(x, y, z, rstride=1, cstride=1, linewidth=0, cmap=colormap, alpha=0.80)
+                    fig.colorbar(p, shrink=0.7)
+                else:
+                    data = nc.variables.get(variable)
+                    data = data[time, level, :, :]
+                    m = cm.ScalarMappable(cmap=colormap)
+                    m.set_array(data)
+                    colors = m.to_rgba(data)[:, :, 0]
+                    ax.set_title('Time: {0} Level: {1} Variable: {2}'.format(time, level, variable))
+                    p = ax.plot_surface(x, y, z, rstride=1, cstride=1, linewidth=0, alpha=0.80, facecolors=colormap(colors))
+                    fig.colorbar(m, shrink=0.7)
 
-        plt.show()
+            plot_thing(2, 2, 1, 40, 30)
+            plot_thing(2, 2, 2, 40, 120)
+            plot_thing(2, 2, 3, 40, 210)
+            plot_thing(2, 2, 4, 40, 300)
+
+            return plt
+
+        except:
+            raise
+        finally:
+            os.remove(tmp_file)
 
     def to_netcdf(self, output_file):
 
@@ -282,6 +261,9 @@ class ModflowOutput(object):
         outputs = self.get_output_objects()
         head_obj = outputs["head_obj"]
         cell_obj = outputs["cell_obj"]
+
+        if os.path.exists(output_file):
+            os.remove(output_file)
 
         with LoggingTimer("Setting up NetCDF file", logger.info):
 
@@ -415,8 +397,14 @@ class ModflowOutput(object):
                     centered_variable = None
                     if standard_var_name in ["flow_right_face", "flow_front_face", "flow_lower_face"]:
                         vname = '{0}_centered'.format(standard_var_name)
+                        if standard_var_name == "flow_right_face":
+                            standard_name = "grid_directed_groundwater_velocity_in_the_u_direction"
+                        elif standard_var_name == "flow_front_face":
+                            standard_name = "grid_directed_groundwater_velocity_in_the_w_direction"
+                        elif standard_var_name == "flow_lower_face":
+                            standard_name = "grid_directed_groundwater_velocity_in_the_v_direction"
                         attrs = dict(units="{0}^3/time".format(self.grid_units),
-                                     standard_name=vname,
+                                     standard_name=standard_name,
                                      long_name=vname.upper().replace("_", ""),
                                      coordinates="time layer latitude longitude")
                         centered_variable = create_variable(nc, vname, attrs, t_chunk)
@@ -445,22 +433,19 @@ class ModflowOutput(object):
                         # Average the flows onto the grid center
                         if centered_variable is not None:
                             z, m, n = cell_array.shape
-                            cell_array = cell_array[:, :, ::-1]
-                            if standard_var_name == "FLOW_RIGHT_FACE":
-                                # We lose the first and last columns
-                                centered_variable.standard_name = "grid_directed_groundwater_velocity_in_the_u_direction"
-                                averaged_array = 0.5 * (cell_array[:, :, 0:n-1] + cell_array[:, :, 1:n])
-                                centered_variable[i, :, 1:-1, :] = averaged_array
-                            elif standard_var_name == "FLOW_FRONT_FACE":
-                                # We lose the first and last vertical levels
-                                centered_variable.standard_name = "grid_directed_groundwater_velocity_in_the_w_direction"
-                                averaged_array = 0.5 * (cell_array[0:z-1, :, :] + cell_array[1:z, :, :])
-                                centered_variable[i, 1:-1, :, :] = averaged_array
-                            elif standard_var_name == "FLOW_LOWER_FACE":
-                                # We lose the first and last rows
-                                centered_variable.standard_name = "grid_directed_groundwater_velocity_in_the_v_direction"
-                                averaged_array = 0.5 * (cell_array[:, 0:n-1, :] + cell_array[:, 1:n, :])
-                                centered_variable[i, :, :, 1:-1] = averaged_array
+                            new_cell_data = var[i, :, :, :]
+                            if standard_var_name == "flow_right_face":
+                                # We lose the last column.
+                                averaged_array = 0.5 * (new_cell_data[:, :, 0:n-1] + new_cell_data[:, :, 1:n])
+                                centered_variable[i, :, :, 0:-1] = averaged_array
+                            elif standard_var_name == "flow_lower_face":
+                                # We lose the last row
+                                averaged_array = 0.5 * (new_cell_data[:, 0:m-1, :] + new_cell_data[:, 1:m, :])
+                                centered_variable[i, :, 0:-1, :] = averaged_array
+                            elif standard_var_name == "flow_front_face":
+                                # We lose the first vertical
+                                averaged_array = 0.5 * (new_cell_data[0:z-1, :, :] + new_cell_data[1:z, :, :])
+                                centered_variable[i, 1:, :, :] = averaged_array
 
                 cell_obj.close()
 
