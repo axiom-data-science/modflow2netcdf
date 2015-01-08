@@ -58,7 +58,11 @@ docs/_build/
 README.html
 
 # Testing output
-output.nc
+**/tests/**/*.nc
+
+docs/**/*.nc
+
+.ipynb_checkpoints
 
 # Denver Basin output
 mod16mf2k.gage03
