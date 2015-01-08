@@ -93,6 +93,9 @@ class ModflowOutput(object):
         # Compute grid from top left corner, so switch Y back around
         y = y[::-1]
 
+        # Compute grid from top left corner, so switch Y back around
+        x = x[::-1]
+
         # Make Z negative (down)
         z = z*-1.
         # Do we need to convert the z axis to cartisian?  I believe we do...
