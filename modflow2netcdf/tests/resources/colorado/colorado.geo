@@ -9,5 +9,5 @@ rotation: 0
 units:    ft
 
 [time]
-units:    days
+units:    minutes
 base:     1970-01-01
