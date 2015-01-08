@@ -47,8 +47,10 @@ def main(name_file, config_file, action, output=None, verbose=None):
         action == "netcdf"
         mo.to_netcdf(output)
 
+    return 0
 
-if __name__ == "__main__":
+
+def run():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('action', action='store', choices=('plot', 'netcdf',))
@@ -74,4 +76,8 @@ if __name__ == "__main__":
     config_file_path = os.path.realpath(args.config_file)
     output_file_path = os.path.realpath(args.output_file)
 
-    main(name_file_path, config_file_path, args.action, output=output_file_path, verbose=args.verbose)
+    return main(name_file_path, config_file_path, args.action, output=output_file_path, verbose=args.verbose)
+
+
+if __name__ == "__main__":
+    run()
