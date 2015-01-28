@@ -220,7 +220,7 @@ class ModflowOutput(object):
             nc = netCDF4.Dataset(tmp_file)
 
             if variable is not None and variable not in nc.variables:
-                raise ValueError("Variable {0} was not found in NetCDF file.  Available variables are: {1}".format(variable, ", ".join([v.name for v in nc.variables])))
+                raise ValueError("Variable {0} was not found in NetCDF file.  Available variables are: {1}".format(variable, ", ".join([v for v in nc.variables])))
 
             # Common variables
             x = nc.variables.get("longitude")[:]
