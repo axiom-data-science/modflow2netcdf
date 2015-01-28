@@ -65,23 +65,27 @@ docs/**/*.nc
 .ipynb_checkpoints
 
 # Denver Basin output
-mod16mf2k.gage03
-mod16mf2k.gage07
-mod16mf2k._nm
-mod16mf2k._ws
-mod16_ssfix_wel2.bsf2
-mod16mf2k.gage04
-mod16mf2k.gage10
-mod16mf2k._os
-mod16mf2k._ww
-mod16_ssfix_wel2.bud
-mod16mf2k.gage05
-mod16mf2k.gage11
-mod16mf2k._r
-mod16_ssfix_wel2.bdn
-mod16_ssfix_wel2.lst
-mod16mf2k.gage06
-mod16mf2k.gage12
-mod16mf2k._w
-mod16_ssfix_wel2.bhd
-mod16trosom._om
+**/colorado/mod16mf2k.gage03
+**/colorado/mod16mf2k.gage07
+**/colorado/mod16mf2k._nm
+**/colorado/mod16mf2k._ws
+**/colorado/mod16_ssfix_wel2.bsf2
+**/colorado/mod16mf2k.gage04
+**/colorado/mod16mf2k.gage10
+**/colorado/mod16mf2k._os
+**/colorado/mod16mf2k._ww
+**/colorado/mod16_ssfix_wel2.bud
+**/colorado/mod16mf2k.gage05
+**/colorado/mod16mf2k.gage11
+**/colorado/mod16mf2k._r
+**/colorado/mod16_ssfix_wel2.bdn
+**/colorado/mod16_ssfix_wel2.lst
+**/colorado/mod16mf2k.gage06
+**/colorado/mod16mf2k.gage12
+**/colorado/mod16mf2k._w
+**/colorado/mod16_ssfix_wel2.bhd
+**/colorado/mod16trosom._om
+
+# Carolina output
+**/carolina/1-23-07.*
+**/carolina/1-23-07_NOASP.*
