@@ -111,7 +111,7 @@ class TestOutput(unittest.TestCase):
         mf.to_netcdf(output_file=output_file)
         nc = netCDF4.Dataset(output_file)
         assert nc is not None
-        assert nc.variables.get("time").units == "days since 1900-01-01T00:00:00Z"
+        assert nc.variables.get("time").units == "days since 1899-12-31T00:00:00Z"
 
     def test_carolina_plot(self):
         carolina_nam = os.path.join(os.path.dirname(__file__), "resources", "carolina", "1-23-07_NOASP.nam")

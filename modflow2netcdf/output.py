@@ -381,7 +381,7 @@ class ModflowOutput(object):
         def create_time(netcdf_file, time_values, t_chunk):
             nc.createDimension("time", len(time_values))
             time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
-            time.units          = "{0} since {1}".format(self.time_units, self.base_date.isoformat().split('.')[0] + "Z")
+            time.units          = "{0} since {1}".format(self.time_units, self.base_date.isoformat().split('.')[0].split('+')[0] + "Z")
             time.standard_name  = "time"
             time.long_name      = "time of measurement"
             time.calendar       = "gregorian"
