@@ -92,3 +92,21 @@ class TestOutput(unittest.TestCase):
         mf = ModflowOutput(freyberg_nam, config_file=freyberg_geo, exe_name="mf2005", verbose=False)
         assert mf is not None
         mf.to_plot(variable='flow_right_face_centered', colormap=matplotlib.cm.GnBu).show()
+
+    def test_carolina_netcdf(self):
+        carolina_nam = os.path.join(os.path.dirname(__file__), "resources", "carolina", "1-23-07_NOASP.nam")
+        carolina_geo = os.path.join(os.path.dirname(__file__), "resources", "carolina", "carolina.geo")
+        mf = ModflowOutput(carolina_nam, config_file=carolina_geo, exe_name="mf2005", verbose=False)
+        assert mf is not None
+        output_file = os.path.join(self.output_path, "carolina", "carolina.nc")
+        mf.to_netcdf(output_file=output_file)
+        nc = netCDF4.Dataset(output_file)
+        assert nc is not None
+        assert nc.variables.get("time").units == "days since 1900-01-01T00:00:00Z"
+
+    def test_carolina_plot(self):
+        carolina_nam = os.path.join(os.path.dirname(__file__), "resources", "carolina", "1-23-07_NOASP.nam")
+        carolina_geo = os.path.join(os.path.dirname(__file__), "resources", "carolina", "carolina.geo")
+        mf = ModflowOutput(carolina_nam, config_file=carolina_geo, exe_name="mf2005", verbose=False)
+        assert mf is not None
+        mf.to_plot(variable='heads', colormap=matplotlib.cm.GnBu).show()
