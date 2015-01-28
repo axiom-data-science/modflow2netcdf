@@ -332,6 +332,30 @@ class ModflowOutput(object):
             lay.axis          = 'Z'
             lay[:]            = np.arange(0, z_size)
 
+            delc = nc.createVariable('delc', 'f4', ('x',))
+            delc.units = 'meters'
+            delc.long_name = "Column spacing in the rectangular grid"
+            if self.grid_units == 'feet':
+                delc[:] = self.dis.delc.array[::-1] * 0.3048
+            else:
+                delc[:] = self.dis.delc.array[::-1]
+            if self.grid_rotation != 0:
+                delc.comments = textwrap.dedent("""This is the column spacing that applied to the UNROTATED grid. \
+                                This grid HAS been rotated before being saved to NetCDF. \
+                                To compute the unrotated grid, use the origin point and this array.""")
+
+            delr = nc.createVariable('delr', 'f4', ('y'))
+            delr.units = 'meters'
+            delr.long_name = "Row spacing in the rectangular grid"
+            if self.grid_units == 'feet':
+                delr[:] = self.dis.delr.array[::-1] * 0.3048
+            else:
+                delr[:] = self.dis.delr.array[::-1]
+            if self.grid_rotation != 0:
+                delr.comments = textwrap.dedent("""This is the row spacing that applied to the UNROTATED grid. \
+                                This grid HAS been rotated before being saved to NetCDF. \
+                                To compute the unrotated grid, use the origin point and this array.""")
+
             # Workaround for CF/CDM.
             # http://www.unidata.ucar.edu/software/thredds/current/netcdf-java/reference/StandardCoordinateTransforms.html
             # "explicit_field"
