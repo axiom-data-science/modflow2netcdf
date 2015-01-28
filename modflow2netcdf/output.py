@@ -372,26 +372,27 @@ class ModflowOutput(object):
             exp._CoordinateTransformType = "vertical"
             exp._CoordinateAxes          = "layer"
 
-            def create_time(netcdf_file, time_values, t_chunk):
-                nc.createDimension("time", len(time_values))
-                time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
-                time.units          = "{0} since {1}".format(self.time_units, self.base_date.strftime("%Y-%m-%dT%H:%M:%SZ"))
-                time.standard_name  = "time"
-                time.long_name      = "time of measurement"
-                time.calendar       = "gregorian"
-                time[:] = np.asarray(time_values)
+        def create_time(netcdf_file, time_values, t_chunk):
+            nc.createDimension("time", len(time_values))
+            time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
+            time.units          = "{0} since {1}".format(self.time_units, self.base_date.isoformat().split('.')[0] + "Z")
+            time.standard_name  = "time"
+            time.long_name      = "time of measurement"
+            time.calendar       = "gregorian"
+            time[:] = np.asarray(time_values)
 
-            def create_variable(netcdf_file, name, attributes, t_chunk):
-                var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
-                var.units         = "{0}^3/time".format(self.grid_units)
-                var.standard_name = standard_var_name
-                var.long_name     = standard_var_name.upper()
-                var.coordinates   = "time layer latitude longitude"
-                return var
+        def create_variable(netcdf_file, name, attributes, t_chunk):
+            var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
+            var.units         = "{0}^3/time".format(self.grid_units)
+            var.standard_name = standard_var_name
+            var.long_name     = standard_var_name.upper()
+            var.coordinates   = "time layer latitude longitude"
+            return var
 
-            # Headfile
-            if head_obj is not None:
+        # Headfile
+        if head_obj is not None:
 
+            with LoggingTimer("Writing HEADS to file", logger.info):
                 # Time
                 time_values = head_obj.get_times()
                 t_chunk = min(len(time_values), 100)
@@ -412,15 +413,16 @@ class ModflowOutput(object):
 
                 head_obj.close()
 
-            if cell_obj is not None:
-                if nc.variables.get("time") is None:
-                     # Time
-                    time_values = cell_obj.get_times()
-                    t_chunk = min(len(time_values), 100)
-                    create_time(nc, time_values, t_chunk)
+        if cell_obj is not None:
+            if nc.variables.get("time") is None:
+                # Time
+                time_values = cell_obj.get_times()
+                t_chunk = min(len(time_values), 100)
+                create_time(nc, time_values, t_chunk)
 
-                for j, var_name in enumerate(cell_obj.unique_record_names()):
-                    standard_var_name = var_name.strip().lower().replace(' ', '_')
+            for j, var_name in enumerate(cell_obj.unique_record_names()):
+                standard_var_name = var_name.strip().lower().replace(' ', '_')
+                with LoggingTimer("Writing {} to file".format(standard_var_name), logger.info):
                     attrs = dict(units="{0}^3/time".format(self.grid_units),
                                  standard_name=standard_var_name,
                                  long_name=standard_var_name.upper().replace("_", ""),
@@ -481,7 +483,7 @@ class ModflowOutput(object):
                                 averaged_array = 0.5 * (new_cell_data[0:z-1, :, :] + new_cell_data[1:z, :, :])
                                 centered_variable[i, 1:, :, :] = averaged_array
 
-                cell_obj.close()
+            cell_obj.close()
 
         with LoggingTimer("Writing NetCDF file", logger.info):
             nc.sync()
