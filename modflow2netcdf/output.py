@@ -464,7 +464,15 @@ class ModflowOutput(object):
                             cell_array[cell_array == f] = fillvalue
                         cell_array[cell_array <= -1e15] = fillvalue
                         cell_array[cell_array == 0.] = fillvalue
-                        var[i, :, :, :] = cell_array[:, :, ::-1]
+                        try:
+                            if len(cell_array.shape) == 2:
+                                # Returned a 2D array, so set data to the top layer
+                                var[i, 0, :, :] = cell_array[:, ::-1]
+                            else:
+                                # Returned a 3D array
+                                var[i, :, :, :] = cell_array[:, :, ::-1]
+                        except IndexError:
+                            logger.exception("Could not save variable {!s} into NetCDF file.  Trying to fit {!s} into {!s}".format(var_name.strip(), var[i, :, :, :].shape, cell_array.shape))
 
                         # Average the flows onto the grid center
                         if centered_variable is not None:
