@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+import textwrap
 from datetime import datetime
 
 import ConfigParser
