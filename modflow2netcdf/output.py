@@ -293,6 +293,12 @@ class ModflowOutput(object):
             nc.setncattr("geospatial_vertical_max",        max_vertical)
             nc.setncattr("geospatial_vertical_resolution", "variable")
             nc.setncattr("featureType", "Grid")
+            logger.info(self.global_attributes)
+            for k, v in self.global_attributes.iteritems():
+                try:
+                    nc.setncattr(k, v)
+                except:
+                    logger.exception("Could not set global attribute {}.  Check that its value is supported in NetCDF4.".format(k))
 
             # Dimensions
             nc.createDimension('x', x_size)
@@ -560,3 +566,8 @@ class ModflowOutput(object):
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
             self.cbud_file = None
             self.head_file = None
+
+        # Global attributes
+        self.global_attributes = dict()
+        if config.has_section('metadata'):
+            self.global_attributes = { k:v for k, v in config.items('metadata') }

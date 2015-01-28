@@ -11,3 +11,7 @@ units:    m
 [time]
 units:    days
 base:     1970-01-01
+
+[metadata]
+id:       wgs84-config-test
+creator:  modflow2netcdf

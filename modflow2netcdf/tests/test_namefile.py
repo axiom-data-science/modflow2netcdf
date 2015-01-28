@@ -36,6 +36,15 @@ class TestOutput(unittest.TestCase):
         mf = ModflowOutput(self.resource, config_file=self.wgs84_config_file, exe_name="mf2005", verbose=True)
         assert mf is not None
 
+    def test_config_global_attributes(self):
+        mf = ModflowOutput(self.resource, config_file=self.wgs84_config_file, exe_name="mf2005", verbose=True)
+        assert mf is not None
+        output_file = os.path.join(self.output_path, "convert.nc")
+        mf.to_netcdf(output_file=output_file)
+        nc = netCDF4.Dataset(output_file)
+        self.assertEquals(nc.id, 'wgs84-config-test')
+        self.assertEquals(nc.creator, 'modflow2netcdf')
+
     def test_plot(self):
         mf = ModflowOutput(self.resource, config_file=self.wgs84_config_file, exe_name="mf2005", verbose=True)
         assert mf is not None

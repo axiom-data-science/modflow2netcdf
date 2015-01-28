@@ -92,6 +92,10 @@ base:     2006-06-01 00:00:00    ; Assumed UTC if no timezone information is spe
 head:     mymodelrun.hds  ; Optional. Path to the Head output file (relative to config file).
 cbud:     mymodelrun.cbb  ; Optional. Path to the CellBudget output file (relative to config file).
 
+[metadata]            ; Each key/value in the 'metadata' block will be added as a global attribute in the NetCDF4 file
+id:       my_model_id
+creator:  modflow2netcdf
+
 ```
 
 ###### Web-mercator Configuration
@@ -111,6 +115,10 @@ units:    days
 base:     1992-01-06 06:00:00 -0500
 
 [output]  ; Not needed, the default extensions for the Head (.bhd) and CellBudget (.bud) output files will be assumed.
+
+[metadata]            ; Each key/value in the 'metadata' block will be added as a global attribute in the NetCDF4 file
+id:       my_model_id
+creator:  modflow2netcdf
 ```
 
 
