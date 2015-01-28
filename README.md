@@ -79,8 +79,8 @@ precision:  double    ; If the model was run with single or double precision. 's
 
 [space]
 crs:      4326        ; EPSG code of grid projection
-origin_x: -72         ; Longitude of upper grid left point (origin)
-origin_y: 41.44       ; Latitude of uppper grid left point (origin)
+origin_x: -72         ; Longitude of upper left grid point (origin)
+origin_y: 41.44       ; Latitude of upper left grid point (origin)
 rotation: 45          ; True north based grid rotation angle (clockwise from true north)
 units:    m           ; Units of measurment in output ('meters', 'm', 'feet', 'ft', or 'f')
 
@@ -122,4 +122,5 @@ Testing is done through `pytest` excecuted in the root of the source code.
 python -m pytest
 ```
 
-To run the tests for the Denver Basin, the output files must be present in the `modflow2netcdf/tests/resources/colorado` directory.  Output can be downloaded from http://pubs.usgs.gov/pp/1770/.  Copy all files from `C-Transient-final/Calibrated_model/` into the `modflow2netcdf/tests/resources/colorado` folder.
+* To run the tests for the Denver Basin (`colorado`), the output files must be present in the `modflow2netcdf/tests/resources/colorado` directory.  Output can be downloaded from http://pubs.usgs.gov/pp/1770/.  Copy all files from `C-Transient-final/Calibrated_model/` into the `modflow2netcdf/tests/resources/colorado` folder.
+* To run the tests for the Carolina (`carolina`), the output files must be present in the `modflow2netcdf/tests/resources/carolina` directory.  Output can be obtained by running the .exe file in the same directory on a windows computer.
