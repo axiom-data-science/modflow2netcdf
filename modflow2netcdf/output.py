@@ -162,24 +162,30 @@ class ModflowOutput(object):
                 pass
 
         # Headfile
+        head_obj = None
         with LoggingTimer("Loading head file", logger.info):
-            if self.head_file:
-                head_obj = flopy_binary.HeadFile(self.head_file, precision=self.precision)
-            elif headfile:
-                head_obj = flopy_binary.HeadFile(headfile[1], precision=self.precision)
-            else:
-                logger.warning("No Headfile found")
-                head_obj = None
+            try:
+                if self.head_file:
+                    head_obj = flopy_binary.HeadFile(self.head_file, precision=self.precision)
+                elif headfile:
+                    head_obj = flopy_binary.HeadFile(headfile[1], precision=self.precision)
+                else:
+                    logger.warning("No Headfile found")
+            except BaseException:
+                logger.exception("Exception occured when trying to load the HeadFile into flopy. Skipping!")
 
         # Cell budget file
+        cell_obj = None
         with LoggingTimer("Loading cell budget file", logger.info):
-            if self.cbud_file:
-                cell_obj = flopy_binary.CellBudgetFile(self.cbud_file, precision=self.precision)
-            elif cellfile:
-                cell_obj = flopy_binary.CellBudgetFile(cellfile[1], precision=self.precision)
-            else:
-                logger.warning("No CellBudget file found")
-                cell_obj = None
+            try:
+                if self.cbud_file:
+                    cell_obj = flopy_binary.CellBudgetFile(self.cbud_file, precision=self.precision)
+                elif cellfile:
+                    cell_obj = flopy_binary.CellBudgetFile(cellfile[1], precision=self.precision)
+                else:
+                    logger.warning("No CellBudget file found")
+            except BaseException:
+                logger.exception("Exception occured when trying to load the CellBudgetFile into flopy. Skipping!")
 
         return dict(head_obj=head_obj,
                     cell_obj=cell_obj)
