@@ -1,0 +1,34 @@
+#--Dataset 1
+#--NSUR ISTRAT NOBS ISWIZT ISWIBD ISWIOBS     
+      1      1    0    211    205       0  xDAPTIVE   
+#--Dataset 2
+#--NSOLVER IPRSOL MUTSOL
+         2      1      1
+#--Dataset 2b
+#--MXITER ITER1 NPCOND  ZCLOSE  RCLOSE RELAX NBPOL DAMPPCG DAMPPCGT
+       25   100      1 0.01000 1000.00  1.00     2    -1.0      1.0
+#--Dataset 3
+# TOESLOPE  TIPSLOPE   ALPHA     BETA   
+  0.025000  0.025000
+#--Dataset 3b
+#NADTPMX NADPTMN ADPTFCT
+#     20       1     2.0
+#      2       2     1.0
+#--Dataset 4 - Nu
+INTERNAL          1 (FREE)   -1
+0.000000 0.025000
+#--Dataset 5 - Zeta
+OPEN/CLOSE 'REF\UMD_IZETA.20130813.ref' 1.00 (FREE) -1  #Zeta2 Layer 1
+OPEN/CLOSE 'REF\UMD_IZETA.20130813.ref' 1.00 (FREE) -1  #Zeta2 Layer 2
+OPEN/CLOSE 'REF\UMD_IZETA.20130813.ref' 1.00 (FREE) -1  #Zeta2 Layer 3
+#--Dataset 6 - Porosity
+open/close REF\UMD_Sy_L1.ref 1.00 (FREE) -1  POROSITY               Layer   1
+open/close REF\UMD_Sy_L1.ref 1.00 (FREE) -1  POROSITY               Layer   2
+open/close REF\UMD_Sy_L1.ref 1.00 (FREE) -1  POROSITY               Layer   3
+#--Dataset 7 - ISOURCE
+OPEN/CLOSE 'REF\UMD_ISOURCE_Obs.ref'    1  (FREE) -1
+CONSTANT 0
+CONSTANT 0
+#--Dataset 8 - SWI observation wells
+#OBSERVATION WELLS
+#  ID LAY  ROW  COL

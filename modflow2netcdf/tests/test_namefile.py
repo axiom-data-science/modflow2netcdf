@@ -119,3 +119,21 @@ class TestOutput(unittest.TestCase):
         mf = ModflowOutput(carolina_nam, config_file=carolina_geo, exe_name="mf2005", verbose=False)
         assert mf is not None
         mf.to_plot(variable='heads', colormap=matplotlib.cm.GnBu).show()
+
+    def test_miami_dade_netcdf(self):
+        miami_nam = os.path.join(os.path.dirname(__file__), "resources", "miami-dade", "UMD_fb.nam")
+        miami_geo = os.path.join(os.path.dirname(__file__), "resources", "miami-dade", "miami-dade.geo")
+        mf = ModflowOutput(miami_nam, config_file=miami_geo, exe_name="mf2005", verbose=False)
+        assert mf is not None
+        output_file = os.path.join(self.output_path, "miami-dade", "miami-dade.nc")
+        mf.to_netcdf(output_file=output_file)
+        nc = netCDF4.Dataset(output_file)
+        assert nc is not None
+        assert nc.variables.get("time").units == "days since 1900-01-01T00:00:00Z"
+
+    def test_miami_dade_plot(self):
+        miami_nam = os.path.join(os.path.dirname(__file__), "resources", "miami-dade", "UMD_fb.nam")
+        miami_geo = os.path.join(os.path.dirname(__file__), "resources", "miami-dade", "miami-dade.geo")
+        mf = ModflowOutput(miami_nam, config_file=miami_geo, exe_name="mf2005", verbose=False)
+        assert mf is not None
+        mf.to_plot(variable='heads', colormap=matplotlib.cm.GnBu).show()

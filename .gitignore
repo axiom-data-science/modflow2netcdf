@@ -89,3 +89,6 @@ docs/**/*.nc
 # Carolina output
 **/carolina/1-23-07.*
 **/carolina/1-23-07_NOASP.*
+
+# Miami-Dade output
+**/miami-dade/Results/

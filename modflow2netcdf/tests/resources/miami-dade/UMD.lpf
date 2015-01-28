@@ -1,0 +1,19 @@
+# MODFLOW2000 Layer Property Flow (LPF) Package
+       205  -1.000000e+030         0          0
+  1 1 1
+  0 0 0
+  1.0 1.0 1.0
+  0 0 0
+  0 0 0
+open/close REF\UMD_HK_L1.ref 1.00 (FREE) -1  HYDRAULIC CONDUCTIVITY Layer   1
+open/close REF\UMD_HK_L1.ref 1.00 (FREE) -1  VERTICAL  CONDUCTIVITY Layer   1
+open/close REF\UMD_Ss_L1.ref 1.00 (FREE) -1  PRIMARY STORAGE        Layer   1
+open/close REF\UMD_Sy_L1.ref 1.00 (FREE) -1  SPECIFIC YIELD         Layer   1
+open/close REF\UMD_HK_L2.ref 1.00 (FREE) -1  HYDRAULIC CONDUCTIVITY Layer   2
+open/close REF\UMD_HK_L2.ref 1.00 (FREE) -1  VERTICAL  CONDUCTIVITY Layer   2
+open/close REF\UMD_Ss_L2.ref 1.00 (FREE) -1  PRIMARY STORAGE        Layer   2
+open/close REF\UMD_Sy_L1.ref 1.00 (FREE) -1  SPECIFIC YIELD         Layer   2
+open/close REF\UMD_HK_L3.ref 1.00 (FREE) -1  HYDRAULIC CONDUCTIVITY Layer   3
+open/close REF\UMD_HK_L3.ref 1.00 (FREE) -1  VERTICAL  CONDUCTIVITY Layer   3
+open/close REF\UMD_Ss_L3.ref 1.00 (FREE) -1  PRIMARY STORAGE        Layer   3
+open/close REF\UMD_Sy_L1.ref 1.00 (FREE) -1  SPECIFIC YIELD         Layer   3
