@@ -68,6 +68,8 @@ class ModflowOutput(object):
         self.get_coordinates()
 
         self.fills = self.get_fill_values()
+        self.fills.append(-9999)  # This was needed for the carolina model
+        logger.info("Fill values set to: {!s}".format(self.fills))
 
     def get_fill_values(self):
 
