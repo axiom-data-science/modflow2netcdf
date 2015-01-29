@@ -281,9 +281,9 @@ class ModflowOutput(object):
 
             # Metadata
             z_size, x_size, y_size = self.zs.shape
-            x_chunk = x_size / 2.
-            y_chunk = y_size / 2.
-            z_chunk = 1
+            x_chunk = int(x_size / 4) + 1
+            y_chunk = int(y_size / 4) + 1
+            z_chunk = z_size
             min_vertical = np.min(self.zs)
             max_vertical = np.max(self.zs)
 
