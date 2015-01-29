@@ -2,10 +2,10 @@
 precision: single
 
 [space]
-crs:      4326
+crs:      4269
 origin_x: -83.747389
 origin_y: 32.917647
-rotation: 42.957964853112
+rotation: -42.957964853112
 units:    ft
 
 [time]
