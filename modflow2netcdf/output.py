@@ -584,4 +584,4 @@ class ModflowOutput(object):
         # Global attributes
         self.global_attributes = dict()
         if config.has_section('metadata'):
-            self.global_attributes = { k:v for k, v in config.items('metadata') }
+            self.global_attributes = { k : v for k, v in config.items('metadata') }
