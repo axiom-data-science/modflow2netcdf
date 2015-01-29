@@ -387,7 +387,7 @@ class ModflowOutput(object):
             exp._CoordinateTransformType = "vertical"
             exp._CoordinateAxes          = "layer"
 
-        def create_time(netcdf_file, time_values, t_chunk):
+        def create_time(time_values, t_chunk):
             nc.createDimension("time", len(time_values))
             time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
             time.units          = "{0} since {1}".format(self.time_units, self.base_date.isoformat().split('.')[0].split('+')[0] + "Z")
@@ -396,12 +396,15 @@ class ModflowOutput(object):
             time.calendar       = "gregorian"
             time[:] = np.asarray(time_values)
 
-        def create_variable(netcdf_file, name, attributes, t_chunk):
+        def create_variable(name, attributes, t_chunk):
+            # Normalize variable name
+            name = name.replace('.', '_').replace(' ', '_').replace('-', '_')
             var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
-            var.units         = "{0}^3/time".format(self.grid_units)
-            var.standard_name = standard_var_name
-            var.long_name     = standard_var_name.upper()
-            var.coordinates   = "time layer latitude longitude"
+            for k, v in attributes.iteritems():
+                try:
+                    var.setncattr(k, v)
+                except:
+                    logger.exception("Could not set variable attribute {} on {}.  Check that its value is supported in NetCDF4.".format(k, name))
             return var
 
         # Headfile
@@ -411,13 +414,13 @@ class ModflowOutput(object):
                 # Time
                 time_values = head_obj.get_times()
                 t_chunk = min(len(time_values), 100)
-                create_time(nc, time_values, t_chunk)
+                create_time(time_values, t_chunk)
 
-                head = nc.createVariable('heads', 'f4', ('time', 'layer', 'x', 'y',), fill_value=fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
-                head.units         = "{0}^3/time".format(self.grid_units)
-                head.standard_name = "heads"
-                head.long_name     = "heads"
-                head.coordinates   = "time layer latitude longitude"
+                attrs = dict(standard_name='heads',
+                             long_name='heads',
+                             coordinates='time layer latitude longitude',
+                             units="{0}^3/time".format(self.grid_units))
+                head = create_variable('heads', attrs, t_chunk)
 
                 for i, time in enumerate(time_values):
                     head_array = head_obj.get_data(totim=time)
@@ -433,7 +436,7 @@ class ModflowOutput(object):
                 # Time
                 time_values = cell_obj.get_times()
                 t_chunk = min(len(time_values), 100)
-                create_time(nc, time_values, t_chunk)
+                create_time(time_values, t_chunk)
 
             for j, var_name in enumerate(cell_obj.unique_record_names()):
                 standard_var_name = var_name.strip().lower().replace(' ', '_')
@@ -442,7 +445,7 @@ class ModflowOutput(object):
                                  standard_name=standard_var_name,
                                  long_name=standard_var_name.upper().replace("_", ""),
                                  coordinates="time layer latitude longitude")
-                    var = create_variable(nc, standard_var_name, attrs, t_chunk)
+                    var = create_variable(standard_var_name, attrs, t_chunk)
 
                     # Average the flows onto the grid center
                     centered_variable = None
@@ -458,7 +461,7 @@ class ModflowOutput(object):
                                      standard_name=standard_name,
                                      long_name=vname.upper().replace("_", ""),
                                      coordinates="time layer latitude longitude")
-                        centered_variable = create_variable(nc, vname, attrs, t_chunk)
+                        centered_variable = create_variable(vname, attrs, t_chunk)
                         centered_variable[:] = fillvalue
 
                     for i, time in enumerate(time_values):
