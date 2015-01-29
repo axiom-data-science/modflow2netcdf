@@ -293,7 +293,10 @@ class ModflowOutput(object):
             nc.setncattr("geospatial_vertical_max",        max_vertical)
             nc.setncattr("geospatial_vertical_resolution", "variable")
             nc.setncattr("featureType", "Grid")
-            logger.info(self.global_attributes)
+            nc.setncattr("origin_x", self.grid_x)
+            nc.setncattr("origin_y", self.grid_y)
+            nc.setncattr("origin_crs", self.config_crs)
+            nc.setncattr("grid_rotation_from_origin", self.grid_rotation)
             for k, v in self.global_attributes.iteritems():
                 try:
                     nc.setncattr(k, v)
@@ -348,6 +351,9 @@ class ModflowOutput(object):
             delc = nc.createVariable('delc', 'f4', ('x',))
             delc.units = 'meters'
             delc.long_name = "Column spacing in the rectangular grid"
+            delc.setncattr("origin_x", self.grid_x)
+            delc.setncattr("origin_y", self.grid_y)
+            delc.setncattr("origin_crs", self.config_crs)
             if self.grid_units == 'feet':
                 delc[:] = self.dis.delc.array[::-1] * 0.3048
             else:
@@ -360,6 +366,9 @@ class ModflowOutput(object):
             delr = nc.createVariable('delr', 'f4', ('y'))
             delr.units = 'meters'
             delr.long_name = "Row spacing in the rectangular grid"
+            delr.setncattr("origin_x", self.grid_x)
+            delr.setncattr("origin_y", self.grid_y)
+            delr.setncattr("origin_crs", self.config_crs)
             if self.grid_units == 'feet':
                 delr[:] = self.dis.delr.array[::-1] * 0.3048
             else:
@@ -521,11 +530,11 @@ class ModflowOutput(object):
             self.grid_rotation = config.getfloat('space', 'rotation')
 
             # CRS
-            config_crs = config.getint('space', 'crs')
+            self.config_crs = config.getint('space', 'crs')
             try:
-                self.grid_crs = Proj(init='epsg:{0!s}'.format(config_crs))
+                self.grid_crs = Proj(init='epsg:{0!s}'.format(self.config_crs))
             except RuntimeError:
-                raise ValueError("Could not understand EPSG code '{!s}' from config file.".format(config_crs))
+                raise ValueError("Could not understand EPSG code '{!s}' from config file.".format(self.config_crs))
 
             # Units
             grid_units = config.get('space', 'units')
