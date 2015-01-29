@@ -1,12 +1,12 @@
-# offset=539750.0,2785750.0,0.0 
+# offset=539750.0,2785750.0,0.0
     3  189  101 5479 4    2               #1461 1996-1999 3288 1996-2004  5479 1996-2010
     0 0 0
-CONSTANT     500.000 (10E12.4)                   0     DELTA-X or C   
-CONSTANT     500.000 (10E12.4)                   0     DELTA-Y or R   
-OPEN/CLOSE 'REF\UMD_URBAN_EDEN_TOPO.ref'       1.0 (FREE)      -1     TOP OF MODEL   
-OPEN/CLOSE 'REF\UMD_BOTM_L1.ref'               1.0 (FREE)      -1     BOTTOM of Layer   1
-OPEN/CLOSE 'REF\UMD_BOTM_L2.ref'               1.0 (FREE)      -1     BOTTOM of Layer   2
-OPEN/CLOSE 'REF\UMD_BOTM_L3.ref'               1.0 (FREE)      -1     BOTTOM of Layer   3
+CONSTANT     500.000 (10E12.4)                   0     DELTA-X or C
+CONSTANT     500.000 (10E12.4)                   0     DELTA-Y or R
+OPEN/CLOSE 'ref/umd_urban_eden_topo.ref'       1.0 (FREE)      -1     TOP OF MODEL
+OPEN/CLOSE 'ref/umd_botm_L1.ref'               1.0 (FREE)      -1     BOTTOM of Layer   1
+OPEN/CLOSE 'ref/umd_botm_L2.ref'               1.0 (FREE)      -1     BOTTOM of Layer   2
+OPEN/CLOSE 'ref/umd_botm_L3.ref'               1.0 (FREE)      -1     BOTTOM of Layer   3
 1.0 1 1.0 TR #Stress Period 1
 1.0 1 1.0 TR #Stress Period 2
 1.0 1 1.0 TR #Stress Period 3
