@@ -412,17 +412,17 @@ class ModflowOutput(object):
         # Headfile
         if head_obj is not None:
 
-            with LoggingTimer("Writing HEADS to file", logger.info):
+            with LoggingTimer("Writing HEAD to file", logger.info):
                 # Time
                 time_values = head_obj.get_times()
                 t_chunk = min(len(time_values), 100)
                 create_time(time_values, t_chunk)
 
-                attrs = dict(standard_name='heads',
-                             long_name='heads',
+                attrs = dict(standard_name='head',
+                             long_name='head',
                              coordinates='time layer latitude longitude',
-                             units="{0}^3/time".format(self.grid_units))
-                head = create_variable('heads', attrs, t_chunk)
+                             units="{0}".format(self.grid_units))
+                head = create_variable('head', attrs, t_chunk)
 
                 for i, time in enumerate(time_values):
                     head_array = head_obj.get_data(totim=time)
