@@ -1,4 +1,4 @@
-## Modflow2NetCDF (mod2net)
+## Modflow2NetCDF (mfnetcdf)
 
 ### Installation
 
