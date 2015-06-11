@@ -6,7 +6,7 @@
 
 1.  Install dependencies from http://www.lfd.uci.edu/~gohlke/pythonlibs/.  Take
 special care to download the versions that match your version of Python.
-  * pyproj
+  * pyproj (optional - only if you need to do a coordinate transformation)
   * NumPy
   * SciPy
   * matplotlib
@@ -14,28 +14,19 @@ special care to download the versions that match your version of Python.
 
 2.  Install `flopy` (version 3) from https://github.com/modflowpy/flopy
 
-3.  Install the following libraries using `pip install [library]`
-  * pytz
-  * pygc
-  * python-dateutil
-
 ##### Linux (using pip)
 
 1.  Install the following packages through your package management system or from source:
   * [HDF5 1.8.x](http://www.hdfgroup.org/HDF5/release/obtain5.html)
   * [netCDF 4.x](http://www.unidata.ucar.edu/downloads/netcdf/index.jsp) (with netCDF4/HDF5 support)
-  * [PROJ.4](http://trac.osgeo.org/proj/)
 
 2.  Install the following libraries using `pip install [library]`
-  * pyproj
+  * pyproj (optional - only if you need to do a coordinate transformation)
   * numpy
   * scipy
   * matplotlib
   * netCDF4
   * flopy
-  * pygc
-  * python-dateutil
-  * pytz
 
 
 ##### Linux (using conda)
@@ -46,30 +37,27 @@ special care to download the versions that match your version of Python.
   * [PROJ.4](http://trac.osgeo.org/proj/)
 
 2.  Install the following libraries using `conda install [library]`
-  * pyproj
+  * pyproj  (optional - only if you need to do a coordinate transformation)
   * numpy
   * scipy
   * matplotlib
   * netCDF4
   * flopy
-  * pygc
-  * python-dateutil
-  * pytz
 
 
 ### Running
 
 #### Inputs
 
-The `mod2net` command takes in two parameters, the path to a Modflow namefile
-(.nam) and the path to a `mod2net` [configuration file](#configuration-file) file.
+The `mfnetcdf_cmdline` command takes in two parameters, the path to a Modflow namefile
+(.nam) and the path to a `mfnetcdf_cmdline` [configuration file](#configuration-file) file.
 
 ###### Examples
 
 
 #### Configuration File
 
-A `mod2net` configuration file should be formated as so:
+A `mfnetcdf` configuration file should be formated as so:
 
 
 ###### WGS84 Configuration
@@ -124,11 +112,4 @@ creator:  modflow2netcdf
 
 #### Testing
 
-Testing is done through `pytest` excecuted in the root of the source code.
-
-```bash
-python -m pytest
-```
-
-* To run the tests for the Denver Basin (`colorado`), the output files must be present in the `modflow2netcdf/tests/resources/colorado` directory.  Output can be downloaded from http://pubs.usgs.gov/pp/1770/.  Copy all files from `C-Transient-final/Calibrated_model/` into the `modflow2netcdf/tests/resources/colorado` folder.
-* To run the tests for the Carolina (`carolina`), the output files must be present in the `modflow2netcdf/tests/resources/carolina` directory.  Output can be obtained by running the .exe file in the same directory on a windows computer.
+Unit tests are done through `mynetcdftest`.
