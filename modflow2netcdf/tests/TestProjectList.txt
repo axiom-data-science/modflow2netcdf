@@ -1,0 +1,2 @@
+Project Name,Test Against External Results,Project Files Relative Path,Name File,Modflow2NetCDF Config File,NetCDF Output File,Data Verification Config File,Data Verification Files Relative Path,Layer,Row,Column
+Freyberg,True,.\resources\freyberg,freyberg.nam,freyberg.geo,freyberg.nc,freyberg.cfg,expected_results\freyberg,1,40,20
