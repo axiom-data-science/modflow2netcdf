@@ -254,10 +254,10 @@ class ModflowOutput(object):
                     p = ax.plot_surface(x, y, z, rstride=1, cstride=1, linewidth=0, alpha=0.80, facecolors=colormap(colors))
                     fig.colorbar(m, shrink=0.7)
 
-            plot_thing(2, 2, 1, 40, 30)
-            plot_thing(2, 2, 2, 40, 120)
-            plot_thing(2, 2, 3, 40, 210)
-            plot_thing(2, 2, 4, 40, 300)
+            plot_thing(2, 2, 1, 40, 20)
+            plot_thing(2, 2, 2, 40, 110)
+            plot_thing(2, 2, 3, 40, 200)
+            plot_thing(2, 2, 4, 40, 290)
 
             return plt
 
