@@ -6,14 +6,14 @@ import sys
 import logging
 import argparse
 
-from modflow2netcdf.mod2net import ModflowToNetCDF
+from modflow2netcdf.mfnetcdf import ModflowToNetCDF
 
 from modflow2netcdf import logger
 logger.level = logging.INFO
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
-def main(name_file, config_file, action, output=None, verbose=None):
+def main(name_file, config_file, action, output=None, verbose=None, verify=False):
 
     if verbose is True:
         logger.level = logging.DEBUG
@@ -40,12 +40,12 @@ def main(name_file, config_file, action, output=None, verbose=None):
         logger.error("The 'action' paramter must be 'plot' or 'netcdf'")
         return
 
-    mo = ModflowToNetCDF(name_file, config_file=config_file)
+    mo = ModflowToNetCDF(os.path.basename(name_file), config_file=config_file, verbose=verbose, model_ws=os.path.dirname(name_file))
     if action == "plot":
         mo.to_plot()
     else:
         action == "netcdf"
-        mo.to_netcdf(output)
+        mo.save_netcdf(output, verify)
 
     return 0
 
@@ -69,6 +69,10 @@ def run():
                         action='store_true',
                         default=False,
                         help="Set output to be verbose, defaults to False")
+    parser.add_argument('-vf', '--verify',
+                        action='store_true',
+                        default=False,
+                        help="Set output to verify NetCDF file, defaults to False")
 
     args = parser.parse_args()
     print args
@@ -76,7 +80,7 @@ def run():
     config_file_path = os.path.realpath(args.config_file)
     output_file_path = os.path.realpath(args.output_file)
 
-    return main(name_file_path, config_file_path, args.action, output=output_file_path, verbose=args.verbose)
+    return main(name_file_path, config_file_path, args.action, output=output_file_path, verbose=args.verbose, verify=args.verify)
 
 
 if __name__ == "__main__":
