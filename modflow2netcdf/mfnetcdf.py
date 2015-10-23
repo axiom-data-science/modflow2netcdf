@@ -1,25 +1,25 @@
 # coding=utf-8
 
+# Standard library imports
+import math
 import os
 import tempfile
 import textwrap
 import ConfigParser
 from datetime import datetime
-
-import fixconfig
-
-import numpy as np
-
+# Inter-Project imports
 from modflow2netcdf import logger
 from modflow2netcdf.utils import LoggingTimer
-
+# USGS imports
 from flopy.modflow.mf import Modflow
 import flopy.utils.binaryfile as flopy_binary
 import flopy.utils.formattedfile as flopy_formatted
-
+# Third part package imports
+import numpy as np
 import netCDF4
-
 from pygc import great_circle
+from pyproj import Proj, transform  # cartopgraphic transformations
+
 
 class VerifyException(Exception):
     def __init__(self, message):
@@ -43,8 +43,8 @@ class ModflowToNetCDF(object):
 
     Methods
     -------
-    toplot :  Creates a plot.
-    tonetcdf : Creates a netcdf file.
+    to_plot :  Creates a plot.
+    save_netcdf : Creates a netcdf file.
 
     See Also
     --------
@@ -62,8 +62,8 @@ class ModflowToNetCDF(object):
     """
     def __init__(self, namfilename, config_file=None, version=None, exe_name=None, verbose=None, model_ws=None):
         # Constants
-        self.c_max_error = 1e-40
-        self.c_crs_code = '4326'
+        self.c_max_error = 1e-10
+        self.c_epsg_code = '4326'
 
         if exe_name is None:
             exe_name = 'mf2005.exe'
@@ -107,19 +107,11 @@ class ModflowToNetCDF(object):
 
         # Process config file
         with LoggingTimer("Parsing config file", logger.info):
-            if self._parse_config_file(config_file) == False:
-                # Execute CRS code transformation
-                # Execution of python code from command line done to avoid added dependencies
-                cmdline = '-c %s -r %s' % (config_file, self.c_crs_code)
-                fixconfig_full_path = os.path.split(os.path.realpath(__file__))
-                fixconfig_full_path = os.path.join(fixconfig_full_path[0], 'fixconfig.py')
-                os.system("%s %s" % (fixconfig_full_path, cmdline))
-
                 # Try parsing again
                 if self._parse_config_file(config_file) == False:
                     raise Exception('Configuration file error.  Unable to transform origin_x and origin_y to crs %s'
                                     'Either transformation is not available or the Pyproj dependency may be '
-                                    'missing.' % self.c_crs_code)
+                                    'missing.' % self.c_epsg_code)
 
         self._get_coordinates()
 
@@ -173,7 +165,7 @@ class ModflowToNetCDF(object):
 
         try:
             _, tmp_file = tempfile.mkstemp(suffix=".nc")
-            self.to_netcdf(output_file=tmp_file)
+            self.save_netcdf(output_file=tmp_file)
             nc = netCDF4.Dataset(tmp_file)
 
             if variable is not None and variable not in nc.variables:
@@ -237,6 +229,7 @@ class ModflowToNetCDF(object):
 
         """
         self.fillvalue = -9999.9
+        self.cbc_fillvalue = 0.0
 
         if self.grid_units == 'feet':
             self.netcdfdata["delc"] = self.dis.delc.array[::-1] * 0.3048
@@ -250,10 +243,13 @@ class ModflowToNetCDF(object):
         cell_obj = outputs["cell_obj"]
 
         if os.path.exists(output_file):
-            os.remove(output_file)
+            try:
+                os.remove(output_file)
+            except:
+                logger.exception("Could not remove existing NetCDF output file %s.".format(output_file))
+                raise Exception("Could not remove existing NetCDF output file %s.".format(output_file))
 
         with LoggingTimer("Setting up NetCDF file", logger.info):
-
             # Metadata
             z_size, x_size, y_size = self.netcdfdata["elevation"].shape
             self.netcdfdata["layer"] = np.arange(0, z_size)
@@ -275,7 +271,7 @@ class ModflowToNetCDF(object):
             nc.setncattr("featureType", "Grid")
             nc.setncattr("origin_x", self.grid_x)
             nc.setncattr("origin_y", self.grid_y)
-            nc.setncattr("origin_crs", self.config_crs)
+            nc.setncattr("origin_crs", self.c_epsg_code)
             nc.setncattr("grid_rotation_from_origin", self.grid_rotation)
             for k, v in self.global_attributes.iteritems():
                 try:
@@ -290,8 +286,8 @@ class ModflowToNetCDF(object):
 
             # Metadata variables
             crs = nc.createVariable("crs", "i4")
-            crs.long_name           = "http://www.opengis.net/def/crs/EPSG/0/%s" % self.c_crs_code
-            crs.epsg_code           = "EPSG:%s" % self.c_crs_code
+            crs.long_name           = "http://www.opengis.net/def/crs/EPSG/0/%s" % self.c_epsg_code
+            crs.epsg_code           = "EPSG:%s" % self.c_epsg_code
             crs.semi_major_axis     = float(6378137.0)
             crs.inverse_flattening  = float(298.257223563)
 
@@ -335,7 +331,7 @@ class ModflowToNetCDF(object):
             delc.long_name = "Column spacing in the rectangular grid"
             delc.setncattr("origin_x", self.grid_x)
             delc.setncattr("origin_y", self.grid_y)
-            delc.setncattr("origin_crs", self.config_crs)
+            delc.setncattr("origin_crs", self.c_epsg_code)
             delc[:] = self.netcdfdata["delc"]
 
             if self.grid_rotation != 0:
@@ -349,7 +345,7 @@ class ModflowToNetCDF(object):
             delr.long_name = "Row spacing in the rectangular grid"
             delr.setncattr("origin_x", self.grid_x)
             delr.setncattr("origin_y", self.grid_y)
-            delr.setncattr("origin_crs", self.config_crs)
+            delr.setncattr("origin_crs", self.c_epsg_code)
             delr[:] = self.netcdfdata["delr"]
 
             if self.grid_rotation != 0:
@@ -369,18 +365,34 @@ class ModflowToNetCDF(object):
         # Create a NetCDF time variable
         def _create_time(time_values, t_chunk):
             nc.createDimension("time", len(time_values))
+            print t_chunk
             time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
+            #time = nc.createVariable("time",    "i8", ("time",), chunksizes=(t_chunk,))
             time.units          = "{0} since {1}".format(self.time_units, self.base_date + "Z")
             time.standard_name  = "time"
+            time.axis = "T"
+            time._coordinateAxisType = "Time"
+            time.ancillary_variables = ""
+            time.comment = ""
+            time.ioos_category = "Time"
             time.long_name      = "time of measurement"
             time.calendar       = "gregorian"
             self.netcdfdata["time"] = np.asarray(time_values)
             time[:] = self.netcdfdata["time"]
 
         # Create a NetCDF variable
-        def _create_variable(name, attributes, t_chunk):
+        def _create_variable(name, attributes, t_chunk, single_layer=False, use_fill_value=True):
             # Normalize variable name
-            var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=self.fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
+            if not single_layer:
+                if use_fill_value:
+                    var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), fill_value=self.fillvalue, chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
+                else:
+                    var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
+            else:
+                if use_fill_value:
+                    var = nc.createVariable(name, 'f3', ('time', 'x', 'y',), fill_value=self.fillvalue, chunksizes=(t_chunk, x_chunk, y_chunk,), zlib=True)
+                else:
+                    var = nc.createVariable(name, 'f3', ('time', 'x', 'y',), chunksizes=(t_chunk, x_chunk, y_chunk,), zlib=True)
             for k, v in attributes.iteritems():
                 try:
                     var.setncattr(k, v)
@@ -398,16 +410,26 @@ class ModflowToNetCDF(object):
 
                 attrs = dict(standard_name='head',
                              long_name='head',
-                             coordinates='time layer latitude longitude',
+                             coordinates='time lat lon alt',
+                             source=' ',
+                             references=' ',
+                             grid_mapping='crs',
+                             scale_factor=1.,
+                             add_offset=0.,
+                             cf_role='timeseries_id',
                              units="{0}".format(self.grid_units))
                 head = _create_variable('head', attrs, t_chunk)
                 self.netcdfdata["head"] = 0
 
+                # Loop through all each time of available head data
                 for i, time in enumerate(time_values):
+                    # Read the head data from the head file
                     head_array = head_obj.get_data(totim=time)
+                    # Set up fill values
                     for f in self.fills:
                         head_array[head_array == f] = self.fillvalue
                     head_array[head_array <= -1e15] = self.fillvalue
+                    # Store in NetCDF variable
                     head[i, :, :, :] = head_array[:, :, ::-1]
 
         # Store contents of cell by cell flow file
@@ -427,7 +449,10 @@ class ModflowToNetCDF(object):
                                  long_name=standard_var_name.upper().replace("_", ""),
                                  coordinates="time layer latitude longitude")
                     name = standard_var_name.replace('.', '_').replace(' ', '_').replace('-', '_')
-                    var = _create_variable(name, attrs, t_chunk)
+                    print 'Processing %s' % (name)
+                    var = np.zeros(shape=(len(time_values), z_size, x_size, y_size), dtype=np.float64)
+                    var[:] = self.cbc_fillvalue
+                    var_dimension = 3
                     self.netcdfdata[name] = ('CELL', var_name, time_values, False)
 
                     # Create NetCDF variable to store flows averaged onto the grid center
@@ -444,14 +469,15 @@ class ModflowToNetCDF(object):
                                      standard_name=standard_name,
                                      long_name=vname.upper().replace("_", ""),
                                      coordinates="time layer latitude longitude")
-                        name = vname.replace('.', '_').replace(' ', '_').replace('-', '_')
-                        centered_variable = _create_variable(name, attrs, t_chunk)
-                        self.netcdfdata[name] = ('CELL', var_name, time_values, True)
-                        centered_variable[:] = self.fillvalue
+                        centered_name = vname.replace('.', '_').replace(' ', '_').replace('-', '_')
+                        centered_variable = _create_variable(centered_name, attrs, t_chunk, use_fill_value=False)
+                        self.netcdfdata[centered_name] = ('CELL', var_name, time_values, True)
+                        centered_variable[:] = self.cbc_fillvalue
 
                     # Loop through all times in the current record
                     for i, time in enumerate(time_values):
                         cell_array = self._get_cell_array(cell_obj, var_name, time, var.shape[1:])
+
                         # Store cell data in NetCDF
                         try:
                             if len(cell_array.shape) == 2:
@@ -459,6 +485,7 @@ class ModflowToNetCDF(object):
                                 var[i, 0, :, :] = cell_array[:, ::-1]
                             else:
                                 # Returned a 3D array
+                                var_dimension = 4
                                 var[i, :, :, :] = cell_array[:, :, ::-1]
 
                         except IndexError:
@@ -469,7 +496,17 @@ class ModflowToNetCDF(object):
                             new_cell_data = var[i, :, :, :]
                             centered_data = centered_variable[i, :, :, :]
                             self._average_flows(new_cell_data, centered_data, standard_var_name)
-                            centered_variable[i, :, :, :] = centered_data
+                            centered_variable[i, :, :, :] = centered_data[:, :, :]
+
+                    # Write to standard NetCDF variable
+                    if var_dimension == 3:
+                        var_ncdf = _create_variable(name, attrs, t_chunk, True, use_fill_value=False)
+                        var_ncdf[:, :, :] = var[:, 0, :, :]
+                        print 'Saved %s as 3-D variable.' % (name)
+                    else:
+                        var_ncdf = _create_variable(name, attrs, t_chunk, use_fill_value=False)
+                        var_ncdf[:, :, :, :] = var[:, :, :, :]
+                        print 'Saved %s as 4-D variable.' % (name)
 
         with LoggingTimer("Writing NetCDF file", logger.info):
             nc.sync()
@@ -477,6 +514,16 @@ class ModflowToNetCDF(object):
 
         # Read NetCDF file and verify that data in equals data out
         if verify:
+            # Test code
+            if head_obj is not None:
+                head_obj.close()
+            if cell_obj is not None:
+                cell_obj.close()
+            outputs = self._get_output_objects()
+            head_obj = outputs["head_obj"]
+            cell_obj = outputs["cell_obj"]
+
+
             # Verify data in NetCDF file by loading data and comparing it to ModFLOW data
             objNCData = netCDF4.Dataset(output_file)
 
@@ -498,22 +545,15 @@ class ModflowToNetCDF(object):
                         # Verify data and mark data as found
                         data_out = objNCData.variables[strVarName][:]
                         if self._array_comp(data_out, self.netcdfdata[strVarName]) == False:
-                            self._print_array_diff(data_out, self.netcdfdata[strVarName], 'debug_array_mf.txt', 'debug_array_netcdf.txt')
                             raise VerifyException('Data verification error: %s does not match.  Unmatched arrays dumped to debug_array_*.txt' % strVarName)
 
                     # Mark data as found
-                    print '%s verified' % strVarName
                     self.data_found[strVarName] = 1
 
-            # Verify that all data is accounted for"
+            # Verify that all data is accounted for
             for name in self.netcdfdata:
                 if self.data_found.has_key(name) == False:
                     raise VerifyException('Data verification error.  Expected data missing from NetCDF file: %s' % name)
-
-            # Get data
-            objData = objNCData.variables.get(strVarName)
-            # Verify against array used to make data file
-            layer = objNCData.variables['layer'][:]
 
         if head_obj is not None:
             head_obj.close()
@@ -574,7 +614,7 @@ class ModflowToNetCDF(object):
 
     def _get_cell_array(self, cell_obj, var_name, time, empty_shape):
         # Get cell data from flopy
-        cell_array = cell_obj.get_data(text=var_name, totim=time, full3D=True)
+        cell_array = cell_obj.get_data(text=var_name, totim=time, full3D=True, verbose=True)
         if isinstance(cell_array, list) and len(cell_array) == 1:
             cell_array = cell_array[0]
         elif isinstance(cell_array, list) and len(cell_array) > 1:
@@ -584,13 +624,7 @@ class ModflowToNetCDF(object):
         elif isinstance(cell_array, list) and len(cell_array) == 0:
             # No data returned
             logger.warning("No data returned for '{!s}' at time {!s}.".format(var_name.strip(), time))
-            cell_array = np.ma.zeros(empty_shape)
-            cell_array.mask = True
-
-        for f in self.fills:
-            cell_array[cell_array == f] = self.fillvalue
-        cell_array[cell_array <= -1e15] = self.fillvalue
-        cell_array[cell_array == 0.] = self.fillvalue
+            cell_array = np.zeros(empty_shape)
 
         return cell_array
 
@@ -635,50 +669,53 @@ class ModflowToNetCDF(object):
             if len(multi_array.shape) == 4:
                 for slice in multi_array:
                     for second_slice in slice:
-                        np.savetxt(outfile, second_slice, fmt='%10.3e')
+                        np.savetxt(outfile, second_slice, fmt='%10.6e')
                         outfile.write('\n')
                     outfile.write('\n')
             elif len(multi_array.shape) == 3:
                 for slice in multi_array:
-                    np.savetxt(outfile, slice, fmt='%10.3e')
+                    np.savetxt(outfile, slice, fmt='%10.6e')
                     outfile.write('\n')
             else:
-                np.savetxt(outfile, multi_array, fmt='%10.3e')
+                np.savetxt(outfile, multi_array, fmt='%10.6e')
 
     def _verify_cell_data(self, objNCData, cell_obj, cdf_var_name, flopy_var_name, time_values, averaged):
 
         # Get cell data from NetCDF
         netcdf_cell = objNCData.variables[cdf_var_name][:]
 
+        if flopy_var_name == '   CONSTANT HEAD':
+            print 'break'
+
         # Loop through time values that should be stored in NetCDF
         for i, time in enumerate(time_values):
             # Get cell data from NetCDF file
-            netcdf_filled = netcdf_cell[i:, :, :].filled()
+            if len(netcdf_cell.shape) == 3:
+                netcdf_data = netcdf_cell[i, :, :]
+            else:
+                netcdf_data = netcdf_cell[i, :, :, :]
             # Get cell data for proper variable name and current time value from flopy
             cell_array = self._get_cell_array(cell_obj, flopy_var_name, time, netcdf_cell.shape[1:])
-            # Mask array
-            cell_array_masked = np.ma.masked_where(cell_array == self.fillvalue, cell_array)
 
             # Flip cell array?
-            if len(cell_array_masked.shape) == 2:
-                flipped_array = cell_array_masked[:, ::-1]
+            if len(cell_array.shape) == 2:
+                flipped_array = cell_array[:, ::-1]
             else:
-                flipped_array = cell_array_masked[:, :, ::-1]
+                flipped_array = cell_array[:, :, ::-1]
 
             # If necessary, average the data
             if averaged:
-                final_array = np.ma.array(data=flipped_array,mask=True)
-                # Compute the cell centered average
+                final_array = np.zeros(netcdf_cell.shape[1:], dtype=np.float64)
+                 # Compute the cell centered average
                 standard_var_name = flopy_var_name.strip().replace('.', '_').replace(' ', '_').replace('-', '_').lower()
                 self._average_flows(flipped_array, final_array, standard_var_name)
             else:
-                final_array = np.ma.copy(flipped_array)
+                final_array = np.copy(flipped_array)
 
             # Compare
-            final_array_filled = final_array.filled(self.fillvalue)
-            if self._array_comp(final_array_filled, netcdf_filled) == False:
-                self._print_array_diff(final_array_filled, netcdf_filled, 'debug_cell_array_mf.txt', 'debug_cell_array_netcdf.txt')
-                raise VerifyException('Data verification error: %s does not match.  Unmatched arrays dumped to debug_cell_array_*.txt.' % cdf_var_name)
+            if not self._array_comp(final_array, netcdf_data):
+                self._print_array_diff(final_array, netcdf_data, 'debug_cell_array_mf.txt', 'debug_cell_array_netcdf.txt')
+                raise VerifyException('Data verification error: %s does not match at time %s.  Unmatched arrays dumped to debug_cell_array_*.txt.' % (cdf_var_name, str(time)))
 
     def _verify_head_data(self, objNCData, head_obj, fillvalue):
         time_values = head_obj.get_times()
@@ -723,58 +760,167 @@ class ModflowToNetCDF(object):
 
     def _get_coordinates(self):
         y, x, z = self.dis.get_node_coordinates()
+
         # Compute grid from top left corner, so switch Y back around
         y = y[::-1]
 
         # Compute grid from top left corner, so switch X back around
         x = x[::-1]
 
-        # Make Z negative (down)
-        #z = z * -1.
         # Convert Z to cartesian
         z = z[:, :, ::-1]
-        print z
-        # Convert distances to grid cell centers (from origin) to meters
-        if self.grid_units == 'feet':
-            x = x * 0.3048
-            y = y * 0.3048
-            z = z * 0.3048
 
         logger.debug("Input origin point: {!s}, {!s}".format(self.grid_x, self.grid_y))
 
-        notrotated_xs = np.ndarray(0)
-        notrotated_ys = np.ndarray(0)
-        with LoggingTimer("Computing unrotated output grid", logger.info):
-            upper = great_circle(distance=x, latitude=self.grid_y, longitude=self.grid_x, azimuth=90)
-            for top_x, top_y in zip(upper["longitude"], upper["latitude"]):
-                # Compute the column points for each point in the upper row.
-                # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
-                row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180)
-                notrotated_xs = np.append(notrotated_xs, row["longitude"])
-                notrotated_ys = np.append(notrotated_ys, row["latitude"])
+        # Support doing model grid location calculations in specified projected coordinate systems
+        c_supported_crs_codes = [(0, 3999), (4399, 4462), (4484, 4489), (4491, 4554), (4568, 4589), (4652, 4656), (4766, 4800), (4855, 4880), (5014, 5016), (5105, 5130), (5167, 5188), (5253, 5259), (5292, 5316), (5343, 5349), (20004,32760)]
+        supported_code = False
+        if self.proj_epsg_code != self.c_epsg_code:
+            if self.epsg_code == True:
+                for crs_range in c_supported_crs_codes:
+                    if crs_range[0] >= self.proj_epsg_code <= crs_range[1]:
+                        supported_code = True
+                        break
+            else:
+                supported_code = True
 
-        if self.grid_rotation != 0:
-            with LoggingTimer("Computing rotated output grid", logger.info):
-                rotated_xs  = np.ndarray(0)
-                rotated_ys  = np.ndarray(0)
-                upper_rotated   = great_circle(distance=x, latitude=self.grid_y, longitude=self.grid_x, azimuth=90+self.grid_rotation)
-                for top_x, top_y in zip(upper_rotated["longitude"], upper_rotated["latitude"]):
+        # If in supported projected coordinate system: Calculate model grid points from northeast corner of
+        # model grid using original coordinate system and then project into c_epsg_code
+        if supported_code:
+            print 'Calculating model grid points in original coordinate system.'
+            # For supported codes X values increase to the east and Y values increase to the north
+            # Calculate cell centers in projected coordinate system first and then convert to lat/long
+            rotated_xsa = np.ndarray(0, dtype='float64')
+            rotated_ysa = np.ndarray(0, dtype='float64')
+            notrotated_xsa = np.ndarray(0, dtype='float64')
+            notrotated_ysa = np.ndarray(0, dtype='float64')
+
+            for x_val in x:
+                # Build location matrices
+                notrotated_xsa = np.append(notrotated_xsa, map(lambda val: self.grid_x - x_val, y))
+                notrotated_ysa = np.append(notrotated_ysa, map(lambda val: self.grid_y - val, y))
+                rotated_xsa = np.append(rotated_xsa, map(lambda val: self.grid_x - (x_val * math.cos(self.grid_rotation) + val * math.sin(math.radians(self.grid_rotation))), y))
+                rotated_ysa = np.append(rotated_ysa, map(lambda val: self.grid_y - (x_val * math.sin(self.grid_rotation) + val * math.cos(math.radians(self.grid_rotation))), y))
+
+            # Convert to lat/long
+            notrotated_xsa, notrotated_ysa = self._transform_CRS_Matrix(notrotated_xsa, notrotated_ysa)
+            rotated_xsa, rotated_ysa = self._transform_CRS_Matrix(rotated_xsa, rotated_ysa)
+
+            # Convert to 2-D matrix
+            xs_matrix = np.reshape(rotated_xsa, (len(x), len(y)))
+            ys_matrix = np.reshape(rotated_ysa, (len(x), len(y)))
+
+            # Assign to NetCDF variables
+            self.netcdfdata["longitude"]  = rotated_xsa.reshape(self.dis.ncol, self.dis.nrow).T
+            self.netcdfdata["latitude"] = rotated_ysa.reshape(self.dis.ncol, self.dis.nrow).T
+
+        # Convert northeast corner of model grid to lat/long
+        self.grid_x, self.grid_y = self._transform_CRS(self.grid_x, self.grid_y)
+
+        # If not supported projected coordinate system: Project northeast corner of model grid into c_epsg_code
+        # and calculate model grid point locations in c_epsg_code
+        if not supported_code:
+            print 'Calculating model grid points in output coordinate system.'
+
+            # Convert distances to grid cell centers (from origin) to meters
+            if self.grid_units == 'feet':
+                x *= 0.3048
+                y *= 0.3048
+                z *= 0.3048
+
+            # Convert to lat/long and then calculate cell centers directly in lat/long
+            notrotated_xs = np.ndarray(0, dtype='float64')
+            notrotated_ys = np.ndarray(0, dtype='float64')
+            with LoggingTimer("Computing unrotated output grid", logger.info):
+                upper = great_circle(distance=x, latitude=self.grid_y, longitude=self.grid_x, azimuth=90)
+                for top_x, top_y in zip(upper["longitude"], upper["latitude"]):
                     # Compute the column points for each point in the upper row.
                     # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
-                    row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+self.grid_rotation)
-                    rotated_xs = np.append(rotated_xs, row["longitude"])
-                    rotated_ys = np.append(rotated_ys, row["latitude"])
-        else:
-            rotated_ys = notrotated_ys
-            rotated_xs = notrotated_xs
+                    row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180)
+                    notrotated_xs = np.append(notrotated_xs, row["longitude"])
+                    notrotated_ys = np.append(notrotated_ys, row["latitude"])
 
-        self.origin_x = self.grid_x
-        self.origin_y = self.grid_y
-        self.no_rotation_xs = notrotated_xs.reshape(self.dis.ncol, self.dis.nrow).T
-        self.no_rotation_ys = notrotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
-        self.netcdfdata["longitude"]  = rotated_xs.reshape(self.dis.ncol, self.dis.nrow).T
-        self.netcdfdata["latitude"] = rotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
+            if self.grid_rotation != 0:
+                with LoggingTimer("Computing rotated output grid", logger.info):
+                    rotated_xs = np.ndarray(0, dtype='float64')
+                    rotated_ys = np.ndarray(0, dtype='float64')
+                    upper_rotated = great_circle(distance=x, latitude=self.grid_y, longitude=self.grid_x, azimuth=90+self.grid_rotation)
+                    for top_x, top_y in zip(upper_rotated["longitude"], upper_rotated["latitude"]):
+                        # Compute the column points for each point in the upper row.
+                        # Because this is a regular grid (rectangles), we can just rotate by 180 degrees plus the rotation angle.
+                        row = great_circle(distance=y, latitude=top_y, longitude=top_x, azimuth=180+self.grid_rotation)
+                        rotated_xs = np.append(rotated_xs, row["longitude"])
+                        rotated_ys = np.append(rotated_ys, row["latitude"])
+            else:
+                rotated_ys = notrotated_ys
+                rotated_xs = notrotated_xs
+
+            self.origin_x = self.grid_x
+            self.origin_y = self.grid_y
+            self.no_rotation_xs = notrotated_xs.reshape(self.dis.ncol, self.dis.nrow).T
+            self.no_rotation_ys = notrotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
+
+            # Convert to 2-D matrix
+            xs_matrix = np.reshape(rotated_xs, (len(x), len(y)))
+            ys_matrix = np.reshape(rotated_ys, (len(x), len(y)))
+
+            # Assign to NetCDF variables
+            self.netcdfdata["longitude"]  = rotated_xs.reshape(self.dis.ncol, self.dis.nrow).T
+            self.netcdfdata["latitude"] = rotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
+
         self.netcdfdata["elevation"]  = z
+        # Save 2-D array to text file (debug code)
+#        self._save_array('rotated_xs.txt', xs_matrix)
+#        self._save_array('rotated_ys.txt', ys_matrix)
+#        if self.bas is not None:
+#            ibf = open('ibound.bin', 'w')
+#            compact = self.compact_ibr(self.bas.ibound)
+#            self._save_array('ibound.txt', compact)
+#            np.save(ibf, self.bas.ibound)
+
+    def compact_ibr(self, multi_array):
+        compact_array = np.zeros(multi_array.shape)
+        for layer in multi_array:
+            row_idx = 0
+            for row in layer:
+                col_idx = 0
+                for ibv in row:
+                    if ibv != 0:
+                        compact_array[0, row_idx, col_idx] = 1
+                    col_idx += 1
+                row_idx += 1
+        return compact_array[0,:,::-1]
+
+    def _transform_CRS_Matrix(self, x_matrix, y_matrix):
+        x_matrix_tf = np.ndarray(0, dtype='float64')
+        y_matrix_tf = np.ndarray(0, dtype='float64')
+        for xval, yval in zip(x_matrix, y_matrix):
+            tf = self._transform_CRS(xval, yval)
+            x_matrix_tf = np.append(x_matrix_tf, tf[0])
+            y_matrix_tf = np.append(y_matrix_tf, tf[1])
+        return (x_matrix_tf, y_matrix_tf)
+
+    def _transform_CRS(self, x_coord, y_coord):
+        # CRS
+        if (self.epsg_code == True and self.proj_epsg_code != self.c_epsg_code) or (self.epsg_code == False):
+            # Transform origin_x and origin_y to correct projection
+            if self.epsg_code:
+                try:
+                    grid_proj = Proj(init='epsg:{0!s}'.format(self.proj_epsg_code))
+                except RuntimeError:
+                    raise ValueError("Could not understand EPSG code '{!s}' from config file.".format(self.proj_epsg_code))
+            else:
+                try:
+                    grid_proj = Proj(self.project_proj4str)
+                except RuntimeError:
+                    raise ValueError("Could not understand proj4 string'{!s}' from config file.".format(self.project_proj4str))
+
+            wgs84_proj = Proj(init='epsg:%s' % self.c_epsg_code)
+            transform_x, transform_y = transform(grid_proj, wgs84_proj, x_coord, y_coord)
+
+            return transform_x, transform_y
+        else:
+            return x_coord, y_coord
 
     def _parse_config_file(self, config_file):
         if config_file is None:
@@ -786,13 +932,22 @@ class ModflowToNetCDF(object):
         except ConfigParser.ParsingError as e:
             raise ValueError("Bad configuration file.  Please check the contents. {!s}.".format(e.message))
 
+        # Coordinate system
+        self.epsg_code = False
+        self.proj_epsg_code = None
         try:
-            # CRS
-            self.config_crs = config.getint('space', 'crs')
-            if self.config_crs != int(self.c_crs_code):
-                # Not the expected CRS
-                return False
+            self.proj_epsg_code = config.get('space', 'epsg')
+            self.epsg_code = True
+        except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+            print 'No epsg code supplied.'
+        if not self.epsg_code:
+            try:
+                self.project_proj4str = config.get('space', 'proj4str')
+            except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
+                raise ValueError('No coorindate system supplied in configuration file.  Coordinate system must'
+                                 'be supplied as an epsg code or a proj4 string.')
 
+        try:
             self.grid_x        = config.getfloat('space', 'origin_x')
             self.grid_y        = config.getfloat('space', 'origin_y')
             self.grid_rotation = config.getfloat('space', 'rotation')
