@@ -98,9 +98,18 @@ class ValidationLog(object):
         if is_float(data_to_validate):
             self.logfile.write('\t\t\tExpected: %f\n' % data_expected)
         else:
-            self.logfile.write('\t\t\tFound:    %s\n' % str(data_to_validate))
+            self.logfile.write('\t\t\tExpected:    %s\n' % str(data_expected))
 
         self.logfile.flush()
+
+    def write_success(self, success):
+        if success:
+            self.logfile.write('SUCCESS: All unit tests were successful.  Review this log for possible warning '
+                               'messages.\n')
+        else:
+            self.logfile.write('FAILURE: One or more unit tests failed.  Review this log for more detailed error '
+                               'messages.\n')
+
 
     def write_test_failure(self, test_name, error_message=None):
         if error_message is not None:
@@ -318,13 +327,18 @@ class DataValidationEngine(object):
                 data_expected_casted = self.data_convert(data_expected)
                 # Either data must be exactly as expected or, if an error threshold is set,
                 # must be within the error threshold
-                data_to_validate = validation_data_iterator.next()[1]
-                if (self.data_error_threshold != 0.0 and abs(data_to_validate - data_expected_casted) >
-                    self.data_error_threshold) or (self.data_error_threshold == 0.0 and
-                    data_to_validate != data_expected_casted):
-                    # Report error to log file
-                    self.log_file.write_data_element_failure(data_file_name, element_number, data_expected_casted, data_to_validate)
-                    success = False
+                try:
+                    data_to_validate = validation_data_iterator.next()
+                except StopIteration:
+                    self.log_file.write_data_element_failure(data_file_name, element_number, data_expected_casted, 'DATA MISSING')
+                else:
+                    data_to_validate = data_to_validate[1]
+                    if (self.data_error_threshold != 0.0 and abs(data_to_validate - data_expected_casted) >
+                        self.data_error_threshold) or (self.data_error_threshold == 0.0 and
+                        data_to_validate != data_expected_casted):
+                        # Report error to log file
+                        self.log_file.write_data_element_failure(data_file_name, element_number, data_expected_casted, data_to_validate)
+                        success = False
                 element_number += 1
         return success
 
