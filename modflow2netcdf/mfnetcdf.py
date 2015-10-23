@@ -770,6 +770,12 @@ class ModflowToNetCDF(object):
         # Convert Z to cartesian
         z = z[:, :, ::-1]
 
+        # Convert distances to grid cell centers (from origin) to meters
+        if self.grid_units == 'feet':
+            x *= 0.3048
+            y *= 0.3048
+            z *= 0.3048
+
         logger.debug("Input origin point: {!s}, {!s}".format(self.grid_x, self.grid_y))
 
         # Support doing model grid location calculations in specified projected coordinate systems
@@ -797,10 +803,10 @@ class ModflowToNetCDF(object):
 
             for x_val in x:
                 # Build location matrices
-                notrotated_xsa = np.append(notrotated_xsa, map(lambda val: self.grid_x - x_val, y))
+                notrotated_xsa = np.append(notrotated_xsa, map(lambda val: self.grid_x + x_val, y))
                 notrotated_ysa = np.append(notrotated_ysa, map(lambda val: self.grid_y - val, y))
-                rotated_xsa = np.append(rotated_xsa, map(lambda val: self.grid_x - (x_val * math.cos(self.grid_rotation) + val * math.sin(math.radians(self.grid_rotation))), y))
-                rotated_ysa = np.append(rotated_ysa, map(lambda val: self.grid_y - (x_val * math.sin(self.grid_rotation) + val * math.cos(math.radians(self.grid_rotation))), y))
+                rotated_xsa = np.append(rotated_xsa, map(lambda val: self.grid_x + (x_val * math.cos(math.radians(self.grid_rotation)) - val * math.sin(math.radians(self.grid_rotation))), y))
+                rotated_ysa = np.append(rotated_ysa, map(lambda val: self.grid_y - (x_val * math.sin(math.radians(self.grid_rotation)) + val * math.cos(math.radians(self.grid_rotation))), y))
 
             # Convert to lat/long
             notrotated_xsa, notrotated_ysa = self._transform_CRS_Matrix(notrotated_xsa, notrotated_ysa)
@@ -821,12 +827,6 @@ class ModflowToNetCDF(object):
         # and calculate model grid point locations in c_epsg_code
         if not supported_code:
             print 'Calculating model grid points in output coordinate system.'
-
-            # Convert distances to grid cell centers (from origin) to meters
-            if self.grid_units == 'feet':
-                x *= 0.3048
-                y *= 0.3048
-                z *= 0.3048
 
             # Convert to lat/long and then calculate cell centers directly in lat/long
             notrotated_xs = np.ndarray(0, dtype='float64')
