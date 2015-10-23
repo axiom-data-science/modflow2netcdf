@@ -2,11 +2,9 @@
 # Name:        TestOutput
 # Purpose:     Perform unit tests on ModflowOutput
 #
-# Author:      spaulins
+# Author:      Scott Paulinski
 #
 # Created:     25/03/2015
-# Copyright:   (c) spaulins 2015
-# Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
 import os
@@ -17,6 +15,9 @@ from mfnetcdf import ModflowToNetCDF, VerifyException
 
 
 class TestModflowToNetCDF(unittest.TestCase):
+    # Success of all unit tests
+    success = True
+
     @classmethod
     def setUpClass(self):
         print 'setup'
@@ -45,6 +46,7 @@ class TestModflowToNetCDF(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
+        self.log_file.write_success(TestModflowToNetCDF.success)
         self.log_file.close()
 
     def test_internal(self):
@@ -56,7 +58,8 @@ class TestModflowToNetCDF(unittest.TestCase):
         return self._test_loop(self.external_test_projects)
 
     def _test_loop(self, test_projects):
-        success = True
+        local_success = True
+
         for test_project in test_projects:
             try:
                 # Run ModflowToNetCDF in verify mode for current project
@@ -68,14 +71,21 @@ class TestModflowToNetCDF(unittest.TestCase):
             except VerifyException as ex:
                 # Verification error occurred
                 self.log_file.write_test_failure(test_project.project_name, ex.message)
-                success = False
-            except:
+                local_success = False
+            except Exception as ex:
                 # An exception other than a verification error was raised during execution
-                self.log_file.write_test_failure(test_project.project_name)
-                success = False
+                self.log_file.write_test_failure(test_project.project_name, ex.message)
+                local_success = False
 
-            test_project.run_tests(self.log_file)
-        return success
+            print 'Running tests for %s' % (test_project.name_file)
+            if not test_project.run_tests(self.log_file):
+                local_success = False
+
+        if not local_success:
+            TestModflowToNetCDF.success = False
+            raise unittest.TestCase.failureException()
+
+        return local_success
 
 if __name__ == '__main__':
     unittest.main()
