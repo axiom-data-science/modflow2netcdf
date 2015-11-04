@@ -61,6 +61,10 @@ class ValidationLog(object):
     def __init__(self, log_file_path):
         self.logfile = open(log_file_path, 'w')
 
+    def write_no_test_data_available(self, data_name):
+        self.logfile.write('\tWARNING: Unable to find any test data at %s.\n' % data_name)
+        self.logfile.flush()
+
     def write_data_type_not_supported(self, data_type):
         self.logfile.write('\tWARNING: Unable to test data of type %s.  Data type not currently supported\n' % data_type)
         self.logfile.flush()
@@ -202,28 +206,28 @@ class IntegerWildcardString(object):
             if match_string is None or not match_string.startswith(string_part):
                 return False
             else:
-                match_string = match_string[len(string_part):]
+                match_string = match_string[len(string_part) - 1:]
 
             index += 1
 
-        return len(match_string) == 0
+        return len(match_string) == 1
 
     def _resolve_wildcard(self, match_string, string_part):
         # Resolve largest wildcard string so that the next match string matches
         match_found_index = -1
-        wc_break_index = 0
-        wild_card_part = match_string[:wc_break_index]
+        wc_break_index = 2
+        wild_card_part = match_string[1:wc_break_index]
         while is_int(wild_card_part) and wc_break_index + 1 < len(match_string):
-            if match_string[wc_break_index+1:].startswith(string_part):
-                match_found_index = wc_break_index
+#            if match_string[wc_break_index:].startswith(string_part):
+            match_found_index = wc_break_index
             wc_break_index += 1
-            wild_card_part = match_string[:wc_break_index]
+            wild_card_part = match_string[1:wc_break_index]
         # Check for valid wild card
         if match_found_index == -1:
             return None
         # Update with new wild card
-        self.wild_card_vals.append(int(match_string[:match_found_index]))
-        return match_string[match_found_index+1:]
+        self.wild_card_vals.append(int(match_string[1:match_found_index]))
+        return match_string[match_found_index:]
 
 
 class TestProjectData(object):
@@ -299,7 +303,7 @@ class DataValidationEngine(object):
     # Output
     #       Returns the file name of the resolved file and stores the parameters for that
     #       file in dtResolvedParams.  Returns None if not found.
-    def resolve_names(self, wildcard_file_name, wildcard_char):
+    def resolve_names(self, wildcard_file_name, wildcard_char='%'):
         resolved_params = []
 
         # Break wildcard string into array
@@ -317,6 +321,7 @@ class DataValidationEngine(object):
         success = True
         element_number = 1
         data_file = open(data_file_name, 'r')
+        print data_file_name
         for line in data_file:
             if self.data_delimiter == '':
                 line_array = line.split()
@@ -324,7 +329,12 @@ class DataValidationEngine(object):
                 line_array = line.split(self.data_delimiter)
 
             for data_expected in line_array:
-                data_expected_casted = self.data_convert(data_expected)
+                try:
+                    data_expected_casted = self.data_convert(data_expected)
+                except ValueError:
+                    print 'Error: Invalid expected result in file %s.  Could not convert %s to a %s.' % (data_file_name,
+                                                                                data_expected, str(self.data_convert))
+
                 # Either data must be exactly as expected or, if an error threshold is set,
                 # must be within the error threshold
                 try:
@@ -360,7 +370,7 @@ class ValidateTimeDependentDataArray(DataValidationEngine):
         return data_type == 'TimeDependentDataArray'
 
     # Subclassed from DataValidationEngine to validate time dependent data.  See parent class description.
-    def validate(self, file_name, data_to_validate, wildcard_char=None):
+    def validate(self, file_name, data_to_validate, wildcard_char='%'):
         success = True
         # Get data shape
         validation_data_iterator = np.ndenumerate(data_to_validate)
@@ -368,12 +378,14 @@ class ValidateTimeDependentDataArray(DataValidationEngine):
         resolved_params = self.resolve_names(file_name, wildcard_char)
         if len(resolved_params) > 0:
             # Sort in order of integer variables found
-            resolved_params = sorted(self.resolved_params, key=lambda params: (params[0]))
+            self.resolved_params = sorted(resolved_params, key=lambda params: (params[0]))
             # Loop through each file to be tested and test with next part of data set
             for params in self.resolved_params:
                 file_path = os.path.join(self.validation_folder_path, params[1])
                 if not self._data_file_compare(file_path, validation_data_iterator):
                     success = False
+        else:
+            self.log_file.write_no_test_data_available(file_name)
         return success
 
 
