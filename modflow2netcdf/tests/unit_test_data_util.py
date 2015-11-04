@@ -2,7 +2,7 @@
 # Name:        UnitTestDataUtil
 # Purpose:
 #
-# Author:      spaulins
+# Author:      Scott Paulinski
 #
 # Created:     25/03/2015
 # Copyright:   (c) spaulins 2015
@@ -13,18 +13,20 @@ import data_validation_engine
 import os
 import netCDF4
 
+
 class NetCDFTestProject(object):
     def __init__(self, project_name, project_path, name_file, mf2netcdf_config, mf2netcdf_output_file):
         self.current_dir = os.getcwd()
 
         self.project_name = project_name
         self.name_file = os.path.join(project_path, name_file)
-        self.mf2netcdf_config =  os.path.join(project_path, mf2netcdf_config)
+        self.mf2netcdf_config = os.path.join(project_path, mf2netcdf_config)
         self.project_path = project_path
         self.mf2netcdf_output_file = mf2netcdf_output_file
 
     def run_tests(self, log_file):
         return True
+
 
 # Configuration information for a specific test project
 class ExternalNetCDFTestProject(NetCDFTestProject):
@@ -41,6 +43,7 @@ class ExternalNetCDFTestProject(NetCDFTestProject):
         self.columns = columns
 
     def run_tests(self, log_file):
+        success = True
         print 'running external tests'
         project_data = ProjectUnitTestData(self.data_verification_config_file, self.data_verification_file_path, log_file)
 
@@ -54,10 +57,12 @@ class ExternalNetCDFTestProject(NetCDFTestProject):
             data = ncdf.variables.get(varname)
 
             # Verify data
-            project_data.confirm_netcdf_result(varname, data)
+            if not project_data.confirm_netcdf_result(varname, data):
+                success = False
 
-        project_data.record_missing_data()
-
+        no_missing_data = project_data.record_missing_data()
+        success = success and no_missing_data
+        return success
 
 class TestProjectVerificationData(object):
     def __init__(self, name, data_check, data_type, data_file_path, data_file_name, data_delimiter, data_error_threshold):
@@ -109,16 +114,22 @@ class ProjectUnitTestData(object):
                 # Report that data is not being tested due to no functional support for that data type
                 if self.log_file is not None:
                     self.log_file.write_data_type_not_supported(self.project_data[result_name].data_type)
-                    return -1
+                    return False
 
-            self.data_test_complete[result_name] = tester.validate(self.project_data[result_name].data_file_name, results, self.project_data[result_name].data_delimiter)
+            self.data_test_complete[result_name] = tester.validate(self.project_data[result_name].data_file_name, results)
             if self.log_file is not None:
                 self.log_file.write_test_result(self.data_test_complete[result_name], result_name)
+
+            return self.data_test_complete[result_name]
         else:
-            # Record as data not in expected results
+            # Record as data does not have a test defined
             self.log_file.write_test_data_without_test(result_name)
+            return True
 
     def record_missing_data(self):
+        no_missing_data = True
         for result_name in self.project_data:
-            if  not self.data_test_complete.has_key(result_name):
+            if not self.data_test_complete.has_key(result_name):
                 self.log_file.write_test_data_missing(result_name)
+                no_missing_data = False
+        return no_missing_data
