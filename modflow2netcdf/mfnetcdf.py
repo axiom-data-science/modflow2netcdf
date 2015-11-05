@@ -164,7 +164,8 @@ class ModflowToNetCDF(object):
             time = 0
 
         try:
-            _, tmp_file = tempfile.mkstemp(suffix=".nc")
+            tmpfd, tmp_file = tempfile.mkstemp(suffix=".nc")
+            os.close(tmpfd)
             self.save_netcdf(output_file=tmp_file)
             nc = netCDF4.Dataset(tmp_file)
 
@@ -205,6 +206,7 @@ class ModflowToNetCDF(object):
             plot_thing(2, 2, 3, 40, 210)
             plot_thing(2, 2, 4, 40, 300)
 
+            nc.close()
             return plt
 
         except:
@@ -213,6 +215,22 @@ class ModflowToNetCDF(object):
             os.remove(tmp_file)
 
     def save_netcdf(self, output_file, verify=False):
+        # Create a NetCDF time variable
+        def _create_time(time_values, t_chunk):
+            nc.createDimension("time", len(time_values))
+            time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
+            time.units          = "{0} since {1}".format(self.time_units, self.base_date)
+            time.standard_name  = "time"
+            time.axis = "T"
+            time._CoordinateAxisType = "Time"
+            time.ancillary_variables = ""
+            time.comment = ""
+            time.ioos_category = "Time"
+            time.long_name      = "time of measurement"
+            time.calendar       = "gregorian"
+            self.netcdfdata["time"] = np.asarray(time_values)
+            time[:] = self.netcdfdata["time"]
+
         """
         Save modflow project data to netcdf file
 
@@ -297,6 +315,7 @@ class ModflowToNetCDF(object):
             lat.standard_name = "latitude"
             lat.long_name     = "latitude"
             lat.axis          = "Y"
+            lat._CoordinateAxisType = "Lat"
             lat[:]            = self.netcdfdata["latitude"]
 
             # Longitude
@@ -305,7 +324,29 @@ class ModflowToNetCDF(object):
             lon.standard_name = "longitude"
             lon.long_name     = "longitude"
             lon.axis          = "X"
+            lon._CoordinateAxisType = "Lon"
             lon[:]            = self.netcdfdata["longitude"]
+
+            # Time
+            time_values_head = None
+            time_values_cell = None
+            time_values_all = None
+            # Get times from head and cell file
+            if head_obj is not None:
+                time_values_head = head_obj.get_times()
+            if cell_obj is not None:
+                time_values_cell = cell_obj.get_times()
+            # Merge times from head and cell file
+            if time_values_head and time_values_cell:
+                time_values_all = time_values_head + list(set(time_values_cell) - set(time_values_head))
+            elif time_values_head:
+                time_values_all = time_values_head
+            elif time_values_cell:
+                time_values_all = time_values_cell
+            # Build time NetCDF object
+            if time_values_all:
+                t_chunk = min(len(time_values_all), 100)
+                _create_time(time_values_all, t_chunk)
 
             # Elevation
             ele = nc.createVariable('elevation', 'f8', ('layer', 'x', 'y',), chunksizes=(z_chunk, x_chunk, y_chunk,), zlib=True)
@@ -362,24 +403,6 @@ class ModflowToNetCDF(object):
             exp._CoordinateTransformType = "vertical"
             exp._CoordinateAxes          = "layer"
 
-        # Create a NetCDF time variable
-        def _create_time(time_values, t_chunk):
-            nc.createDimension("time", len(time_values))
-            print t_chunk
-            time = nc.createVariable("time",    "f8", ("time",), chunksizes=(t_chunk,))
-            #time = nc.createVariable("time",    "i8", ("time",), chunksizes=(t_chunk,))
-            time.units          = "{0} since {1}".format(self.time_units, self.base_date + "Z")
-            time.standard_name  = "time"
-            time.axis = "T"
-            time._coordinateAxisType = "Time"
-            time.ancillary_variables = ""
-            time.comment = ""
-            time.ioos_category = "Time"
-            time.long_name      = "time of measurement"
-            time.calendar       = "gregorian"
-            self.netcdfdata["time"] = np.asarray(time_values)
-            time[:] = self.netcdfdata["time"]
-
         # Create a NetCDF variable
         def _create_variable(name, attributes, t_chunk, single_layer=False, use_fill_value=True):
             # Normalize variable name
@@ -405,8 +428,6 @@ class ModflowToNetCDF(object):
             with LoggingTimer("Writing HEAD to file", logger.info):
                 # Time
                 time_values = head_obj.get_times()
-                t_chunk = min(len(time_values), 100)
-                _create_time(time_values, t_chunk)
 
                 attrs = dict(standard_name='head',
                              long_name='head',
@@ -434,11 +455,8 @@ class ModflowToNetCDF(object):
 
         # Store contents of cell by cell flow file
         if cell_obj is not None:
-            if nc.variables.get("time") is None:
-                # Time
-                time_values = cell_obj.get_times()
-                t_chunk = min(len(time_values), 100)
-                _create_time(time_values, t_chunk)
+            # Time
+            time_values = cell_obj.get_times()
 
             for j, var_name in enumerate(cell_obj.unique_record_names()):
                 standard_var_name = var_name.strip().lower().replace(' ', '_')
@@ -684,9 +702,6 @@ class ModflowToNetCDF(object):
         # Get cell data from NetCDF
         netcdf_cell = objNCData.variables[cdf_var_name][:]
 
-        if flopy_var_name == '   CONSTANT HEAD':
-            print 'break'
-
         # Loop through time values that should be stored in NetCDF
         for i, time in enumerate(time_values):
             # Get cell data from NetCDF file
@@ -869,14 +884,6 @@ class ModflowToNetCDF(object):
             self.netcdfdata["latitude"] = rotated_ys.reshape(self.dis.ncol, self.dis.nrow).T
 
         self.netcdfdata["elevation"]  = z
-        # Save 2-D array to text file (debug code)
-#        self._save_array('rotated_xs.txt', xs_matrix)
-#        self._save_array('rotated_ys.txt', ys_matrix)
-#        if self.bas is not None:
-#            ibf = open('ibound.bin', 'w')
-#            compact = self.compact_ibr(self.bas.ibound)
-#            self._save_array('ibound.txt', compact)
-#            np.save(ibf, self.bas.ibound)
 
     def compact_ibr(self, multi_array):
         compact_array = np.zeros(multi_array.shape)
