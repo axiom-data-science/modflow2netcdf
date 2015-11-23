@@ -293,7 +293,7 @@ id:       my_model_id
 creator:  modflow2netcdf
 ```
 
-### Example Python Code Accessing the MODFLOW2NetCDF Library
+#### Example Python Code Accessing the MODFLOW2NetCDF Library
 
 MODFLOW2NetCDF provides a python library interface.  An example python script using this interface can be found in:
 
