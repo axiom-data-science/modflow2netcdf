@@ -245,7 +245,7 @@ See the command line example in docs\examples\commandline.
 ### MODFLOW2NetCDF Configuration File Examples
 
 #### Example WGS84 Configuration File
-'''ini
+```ini
 [general]
 precision:  double    ; If the model was run with single or double precision. 'single' or 'double'.
 
@@ -268,10 +268,10 @@ cbud:     mymodelrun.cbb  ; Optional. Path to the CellBudget output file (relati
 id:       my_model_id
 creator:  modflow2netcdf
 
-'''
+```
 
 #### Example Web-mercator Configuration File
-'''ini
+```ini
 [general]
 precision:  single    ; If the model was run with single or double precision. 'single' or 'double'.
 
@@ -291,13 +291,13 @@ base:     1992-01-06 06:00:00 -0500
 [metadata]            ; Each key/value in the 'metadata' block will be added as a global attribute in the NetCDF4 file
 id:       my_model_id
 creator:  modflow2netcdf
-'''
+```
 
 ### Example Python Code Accessing the MODFLOW2NetCDF Library
 
 MODFLOW2NetCDF provides a python library interface.  An example python script using this interface can be found in:
 
-docs\examples\script\mfnetcdf_example.py
+	docs\examples\script\mfnetcdf_example.py
 
 ## Testing
 
