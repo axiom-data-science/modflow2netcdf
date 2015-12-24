@@ -355,7 +355,7 @@ class ModflowToNetCDF(object):
             ele.long_name     = "elevation"
             ele.valid_min     = min_vertical
             ele.valid_max     = max_vertical
-            ele.positive      = "down"
+            ele.positive      = "up"
             ele[:]            = self.netcdfdata["elevation"]
 
             # Layers
