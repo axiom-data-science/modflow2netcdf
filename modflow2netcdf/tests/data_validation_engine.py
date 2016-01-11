@@ -114,7 +114,6 @@ class ValidationLog(object):
             self.logfile.write('FAILURE: One or more unit tests failed.  Review this log for more detailed error '
                                'messages.\n')
 
-
     def write_test_failure(self, test_name, error_message=None):
         if error_message is not None:
             self.logfile.write('ERROR: Internal test %s failed with error message: %s\n.' % (test_name, error_message))

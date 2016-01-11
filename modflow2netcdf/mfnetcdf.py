@@ -413,9 +413,9 @@ class ModflowToNetCDF(object):
                     var = nc.createVariable(name, 'f4', ('time', 'layer', 'x', 'y',), chunksizes=(t_chunk, z_chunk, x_chunk, y_chunk,), zlib=True)
             else:
                 if use_fill_value:
-                    var = nc.createVariable(name, 'f3', ('time', 'x', 'y',), fill_value=self.fillvalue, chunksizes=(t_chunk, x_chunk, y_chunk,), zlib=True)
+                    var = nc.createVariable(name, 'f4', ('time', 'x', 'y',), fill_value=self.fillvalue, chunksizes=(t_chunk, x_chunk, y_chunk,), zlib=True)
                 else:
-                    var = nc.createVariable(name, 'f3', ('time', 'x', 'y',), chunksizes=(t_chunk, x_chunk, y_chunk,), zlib=True)
+                    var = nc.createVariable(name, 'f4', ('time', 'x', 'y',), chunksizes=(t_chunk, x_chunk, y_chunk,), zlib=True)
             for k, v in attributes.iteritems():
                 try:
                     var.setncattr(k, v)
