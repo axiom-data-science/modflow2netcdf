@@ -1,5 +1,7 @@
 # Modflow2NetCDF
 
+### Version 1.0.0
+
 ## Introduction
 
 Modflow2NetCDF is a tool for exporting geographic model data and results from MODFLOW 
@@ -9,6 +11,18 @@ based on the model grid and additional information supplied in a configuration f
 data is exported for each cell from the head and cell by cell flow files.
 
 ## Installation
+
+Modflow2NetCDF requires Python 2.7 or higher.  In addition, the following python libraries need to be installed prior to installation of Modflow2NetCDF.  Operating
+system specific installation instructions are available below.
+
+  * pyproj
+  * pygc
+  * NumPy
+  * SciPy
+  * matplotlib
+  * HDF5
+  * netCDF4
+  * flopy
 
 ### Windows
 
@@ -84,12 +98,31 @@ Therefore head and cell by cell flow data must be saved during the same time int
 correctly.  This can be accomplished by editing the MODFLOW output control file so that every where "SAVE HEAD" appears
 in the file "SAVE BUDGET" also appears, and vica versa.
 
+### Contents of NetCDF File
+
+MODFLOW2NetCDF exports selected MODFLOW input and output data to a NetCDF file.  The contents of the exported NetCDF file
+are as follows.
+
+	* The length and width of the model cells in the MODFLOW grid (delc and delr arrays)
+	* The size of the MODFLOW grid being exported (number of layers, rows, columns)
+	* Three NetCDF dimension variables, describing the location of each model cell with x, y, and z coordinates
+	* One NetCDF time dimension variable, containing all the times that data is present 
+
+	* The following data sets may also be included, depending if a head and/or budget file are specified and the data available
+	  in these files
+		* Head values stored in the head file
+		* Cell by cell flow values stored in the cell by cell flow file
+
 ### MODFLOW2NetCDF Configuration File
 
-A MODFLOW2NetCDF configuration file needs to be built for each MODFLOW project that is exported into 
-NetCDF format.  The configuration file contains information specific to the MODFLOW project being exported,
-including spatial and temporal information.  The configuration file is read using python's ConfigParser
-library, and consists of sections followed by "name: value" entries.
+A MODFLOW2NetCDF configuration file needs to be built for each MODFLOW project exported into NetCDF format.  The 
+configuration file contains information specific to the MODFLOW project being exported, including spatial and temporal 
+information.  The configuration file is read using python's ConfigParser library, and consists of sections followed by 
+"name: value" entries.
+
+The configuration file is specified from the commandline (mfnetcdf_cmdline.py) with the -c [CONFIG_FILE] parameter.  The 
+configuration file is specified through the library interface during initialization of the ModflowToNetCDF object with 
+the config_file parameter.
 
 Spatial data includes the grid projection used by the model, the location of the upper left grid point in 
 the model's projection, the rotation of the grid from true north-south, and the units of measurement.  MODFLOW2NetCDF 
@@ -106,12 +139,12 @@ included with MODFLOW2NetCDF:
 
 #### Configuration settings
 
-The MODFLOW2NetCDF configuration has five sections, the general, space, time, output, and metadata sections.  The
+The MODFLOW2NetCDF configuration file has five sections, general, space, time, output, and metadata.  The
 sections and descriptions of required and optional entries in each section are documented below.
 
 ##### General section
 ###### precision : single or double
-	Precision that MODFLOW output is saved in.
+	Precision that the MODFLOW output file was saved in
 	
 ##### Space section
 ###### crs : [integer or string]
@@ -130,17 +163,17 @@ sections and descriptions of required and optional entries in each section are d
 	Time units specified in the NetCDF file.  
 		Example: 'days', 'hours', or 'minutes'
 ###### base: [string]
-	Base date of when the model started.  Assumed UTC if no timezone information is specified.
+	Base date of when the model started.  UTC is assumed if no timezone information is specified.
 		Example: '2006-06-01 00:00:00'
 
 ##### Output section
 
 ###### head: [file path] (optional)
-	Path to the Head output file relative to config file.
+	Path to the Head output file relative to configuration file.
 		Example: 'output\mymodelrun.hds'
 
 ###### cbud: [file path] (optional)
-	Path to the CellBudget output file relative to config file.
+	Path to the CellBudget output file relative to configuration file.
 		Example: 'output\mymodelrun.cbb'
 
 ###### headtype: [binary or formatted] (optional)
@@ -155,7 +188,10 @@ sections and descriptions of required and optional entries in each section are d
 
 ### Command line interface
 
-The 'mfnetcdf_cmdline.py' command line python script takes the following command line parameters:
+The 'mfnetcdf_cmdline.py' command line python script provides a simple interface to the MODFLOW2NetCDF library
+that allows for the creation of a NetCDF file.  Usage of this interface requires only a basic understanding of 
+using command line interfaces and does not require any python programming language knowledge.  The 'mfnetcdf_cmdline.py'
+script takes the following command line parameters:
 
 	-n NAME_FILE				
 		The path to a MODFLOW namefile
@@ -168,14 +204,16 @@ The 'mfnetcdf_cmdline.py' command line python script takes the following command
 	[-vf]								
 		Verify NetCDF file, defaults to False
 	
-### Using ModflowToNetCDF as a library 
+### Using Modflow2NetCDF as a library 
 
-The ModflowToNetCDF library contains a single class, ModflowToNetCDF.
+The Modflow2NetCDF library was designed to export data and results from a MODFLOW project to a NetCDF formatted file. The 
+Modflow2NetCDF library contains a single class, ModflowToNetCDF.
 
 #### ModflowToNetCDF Class
 
-The ModflowToNetCDF class supports exporting MODFLOW data to a NetCDF file and plotting
-MODFLOW data.
+The ModflowToNetCDF class supports exporting MODFLOW data to a NetCDF file and plotting MODFLOW data.  This class reads a MODFLOW 
+project's input and output files using flopy.  It also reads a Modflow2NetCDF configuration file that must be created for each 
+MODFLOW project being exported into NetCDF format.
 
 ##### Parameters
 	
@@ -233,16 +271,21 @@ MODFLOW data.
 
 ## Examples
 
-### MODFLOW2NetCDF Command Line Example
+### Modflow2NetCDF Command Line Example
 
-MODFLOW2NetCDF can be run from the command line with three required command line switches 
-identifing the name file, MODFLOW2NetCDF config file, and output file:
+Modflow2NetCDF can be run from the command line with three required command line switches 
+identifing the name file, Modflow2NetCDF config file, and output file:
 
 	mfnetcdf_cmdline.py -n "input\modflow_proj.nam" -c "input\modflow_proj.geo" -o "output\netcdf_file.nc"
 
 See the command line example in docs\examples\commandline.
 	
-### MODFLOW2NetCDF Configuration File Examples
+### Modflow2NetCDF Configuration File Examples
+
+The Modflow2NetCDF configuration file contains project specific information about a specific MODFLOW project which is
+used to properly export MODFLOW data into NetCDF format.  The following are examples of Modflow2NetCDF configuration
+files.  These examples contain project specific information that most likely will need to be changed for each MODFLOW 
+project. 
 
 #### Example WGS84 Configuration File
 ```ini
@@ -298,9 +341,23 @@ creator:  modflow2netcdf
 MODFLOW2NetCDF provides a python library interface.  An example python script using this interface can be found in:
 
 	docs\examples\script\mfnetcdf_example.py
+	
+This example script exports MODFLOW data from the Freyberg test model to a NetCDF4 file named freyberg.nc.  The script 
+makes use of freyberg.geo, a Modflow2NetCDF configuration file written for the Freyberg project.
 
 ## Testing
 
-Unit tests can be found in the 'tests' folder.  Unit tests are run by running the unit test code in 'mfnetcdftest.py'.
-Unit tests are implemented using python's unittest library.  Detailed results of the unit test are written to 
+Unit tests can be found in the 'tests' folder.  Unit tests are executed by running the unit test code in 'mfnetcdftest.py'.
+Unit tests are implemented using python's unittest library.  Detailed results of the unit tests are written to 
 TestProjectLog.txt.
+
+Unit tests run two types of tests, internal data verification tests and external data verification tests.   
+
+Internal data verification tests create a NetCDF file and then read the NetCDF file using the NetCDF4 interface.  The
+contents of the NetCDF file is then verified against the MODFLOW project's data, accessed using FLOPY.  Internal data verification
+tests are designed to find errors during the conversion and export of the MODFLOW data to NetCDF format.
+
+External data verification tests verify the contents of a NetCDF file against externally produced (produced without the use
+of Modflow2NetCDF or any of its dependent libraries) expected results.  While external data verification tests are more rigorous,
+creating these tests is also more time intensive.  Therefore there are only a limited number of external data verification tests
+available for Modflow2NetCDF.
