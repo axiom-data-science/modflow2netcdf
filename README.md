@@ -340,14 +340,14 @@ coordinates based on EPSG code 4326 (semi-major axis = 6378137.0, inverse flatte
 is layed out on a grid with spatial dimension variables (x, y, and layer).  In addition, a time dimension (t) is set up based on
 the times found in the MODFLOW head and cell by cell flow output files.  The NetCDF output file contains the following variables.
 
-Dimensions
+##### Dimensions
 	
 	x
 	y
 	layer
 	time
 		
-Variables
+##### General Variables
 	
 	crs 
 		Coordinate system used.  EPSG code: 4326
@@ -367,12 +367,12 @@ Variables
 		1D array of cell widths along model rows
 	VerticalTransform
 		
-Head variables (when provided in head file)
+##### Head variables (when provided in head file)
 	
 	head (when provided in head file)
 		4D array of head values (time, layer, x, y)
 
-Cell By Cell Flow Variables (when provided in cell by cell flow file)
+##### Cell By Cell Flow Variables (when provided in cell by cell flow file)
 	
 	Cell by cell flow variables each are written as 4D arrays (time, layer, x, y) to the 
 	NetCDF output file.  These variables may include:
