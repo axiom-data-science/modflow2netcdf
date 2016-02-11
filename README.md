@@ -101,21 +101,6 @@ Therefore head and cell by cell flow data must be saved during the same time int
 correctly.  This can be accomplished by editing the MODFLOW output control file so that every where "SAVE HEAD" appears
 in the file "SAVE BUDGET" also appears, and vica versa.
 
-### Contents of NetCDF File
-
-MODFLOW2NetCDF exports selected MODFLOW input and output data to a NetCDF file.  The contents of the exported NetCDF file
-are as follows.
-
-	* The length and width of the model cells in the MODFLOW grid (delc and delr arrays)
-	* The size of the MODFLOW grid being exported (number of layers, rows, columns)
-	* Three NetCDF dimension variables, describing the location of each model cell with x, y, and z coordinates
-	* One NetCDF time dimension variable, containing all the times that data is present 
-
-	* The following data sets may also be included, depending if a head and/or budget file are specified and the data available
-	  in these files
-		* Head values stored in the head file
-		* Cell by cell flow values stored in the cell by cell flow file
-
 ### MODFLOW2NetCDF Configuration File
 
 A MODFLOW2NetCDF configuration file needs to be built for each MODFLOW project exported into NetCDF format.  The 
@@ -356,12 +341,14 @@ is layed out on a grid with spatial dimension variables (x, y, and layer).  In a
 the times found in the MODFLOW head and cell by cell flow output files.  The NetCDF output file contains the following variables.
 
 Dimensions
+	
 	x
 	y
 	layer
 	time
 		
 Variables
+	
 	crs 
 		Coordinate system used.  EPSG code: 4326
 	latitude
@@ -381,12 +368,15 @@ Variables
 	VerticalTransform
 		
 Head variables (when provided in head file)
+	
 	head (when provided in head file)
 		4D array of head values (time, layer, x, y)
 
 Cell By Cell Flow Variables (when provided in cell by cell flow file)
+	
 	Cell by cell flow variables each are written as 4D arrays (time, layer, x, y) to the 
 	NetCDF output file.  These variables may include:
+		
 		constant_head
 		flow_right_face_centered 
 		flow_right_face
