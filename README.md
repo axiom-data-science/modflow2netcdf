@@ -10,6 +10,9 @@ cell elevation and location.  The geographic location and elevation of each mode
 based on the model grid and additional information supplied in a configuration file. Model output 
 data is exported for each cell from the head and cell by cell flow files.
 
+Modflow2NetCDF uses the Flopy libraries to access MODFLOW project data, and supports the versions
+of MODFLOW supported by Flopy, including MODFLOW-2000, MODFLOW-2005, MODFLOW-NWT, and MODFLOW-USG.
+
 ## Installation
 
 Modflow2NetCDF requires Python 2.7 or higher.  In addition, the following python libraries need to be installed prior to installation of Modflow2NetCDF.  Operating
@@ -344,6 +347,63 @@ MODFLOW2NetCDF provides a python library interface.  An example python script us
 	
 This example script exports MODFLOW data from the Freyberg test model to a NetCDF4 file named freyberg.nc.  The script 
 makes use of freyberg.geo, a Modflow2NetCDF configuration file written for the Freyberg project.
+
+## NetCDF Output File Contents
+
+The NetCDF output file that Modflow2NetCDF creates contains location based data saved with latitute, longitude, and elevation
+coordinates based on EPSG code 4326 (semi-major axis = 6378137.0, inverse flattening = 298.257223563).  The location of the data
+is layed out on a grid with spatial dimension variables (x, y, and layer).  In addition, a time dimension (t) is set up based on
+the times found in the MODFLOW head and cell by cell flow output files.  The NetCDF output file contains the following variables.
+
+Dimensions
+	x
+	y
+	layer
+	time
+		
+Variables
+	crs 
+		Coordinate system used.  EPSG code: 4326
+	latitude
+		2D array of latitude values for each model cell in a single model layer
+	longitude
+		2D array of longitude values for each model cell in a single model layer
+	time
+		1D array of times for output data (head values and cell by cell flow values)
+	elevation
+		3D array of elevation values for each model cell
+	layer
+		1D array of model layers
+	delc
+		1D array of cell widths along model columns
+	delr
+		1D array of cell widths along model rows
+	VerticalTransform
+		
+Head variables (when provided in head file)
+	head (when provided in head file)
+		4D array of head values (time, layer, x, y)
+
+Cell By Cell Flow Variables (when provided in cell by cell flow file)
+	Cell by cell flow variables each are written as 4D arrays (time, layer, x, y) to the 
+	NetCDF output file.  These variables may include:
+		constant_head
+		flow_right_face_centered 
+		flow_right_face
+		flow_front_face_centered
+		flow_front_face 
+		flow_lower_face_centered
+		flow_lower_face 
+		wells
+		drains
+		river_leakage
+		head_dep_bounds
+		recharge
+		specified_flows
+		stream_leakage
+		et_segments
+		mnw
+		storage
 
 ## Testing
 
