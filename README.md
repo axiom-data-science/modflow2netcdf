@@ -396,6 +396,12 @@ in the MODFLOW head and cell budget output files.  The NetCDF output file contai
 		et_segments
 		mnw
 		storage
+		
+	All variables except the flow_xxxx_face_centered variables are extracted directly from the cell budget file.  The flow_xxxx_face_centered
+	variables are calculated 4-D arrays based on the cooresponding flow_xxxx_face variables extracted from the cell budget file.  The centered
+	values are calculated as the average flow across two adjacent (parallel) faces.  For example, flow_right_face_centered is calculated for cell
+	(i,j,k) as the average of the flow across the right face of (i,j,k) (the face shared by (i,j,k) and (i,j+1,k)) and the flow across the right
+	face of (i,j-1,k) (the face shared by (i,j-1,k) and (i,j,k). 
 
 ## Testing
 
