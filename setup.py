@@ -4,7 +4,7 @@ import sys
 from setuptools import setup, find_packages
 from setuptools.command.test import test as TestCommand
 
-version = "0.0.1-dev"
+version = "0.0.2-dev"
 
 
 def readme():
@@ -40,7 +40,7 @@ setup(
     cmdclass            = {'test': PyTest},
     entry_points        = {
         'console_scripts' : [
-            'mod2net=modflow2netcdf.mod2net:run'
+            'mfnetcdf=modflow2netcdf.mfnetcdf:run'
         ],
     },
     classifiers         = [
