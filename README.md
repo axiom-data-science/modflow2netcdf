@@ -323,12 +323,12 @@ MODFLOW2NetCDF provides a python library interface.  The following is an example
 	import os
 	from modflow2netcdf.mfnetcdf import ModflowToNetCDF
 
-	\# Set paths to name, config, and output files
-	name_file = os.path.realpath('..\\\\..\\\\..\\\\modflow2netcdf\\\\tests\\\\resources\\\\freyberg\\\\freyberg.nam')
-	config_file = os.path.realpath('..\\\\..\\\\..\\\\modflow2netcdf\\\\tests\\\\resources\\\\freyberg\\\\freyberg.geo')
+	# Set paths to name, config, and output files
+	name_file = os.path.realpath('..\\..\\..\\modflow2netcdf\\tests\\resources\\freyberg\\freyberg.nam')
+	config_file = os.path.realpath('..\\..\\..\\modflow2netcdf\\tests\\resources\\freyberg\\freyberg.geo')
 	output_file = os.path.realpath('freyberg.nc')
 
-	\# Execute ModflowToNetCDF
+	# Execute ModflowToNetCDF
 	mo = ModflowToNetCDF(os.path.basename(name_file), config_file=config_file, verbose=False, model_ws=os.path.dirname(name_file))
 	mo.save_netcdf(output_file, False)
 	
