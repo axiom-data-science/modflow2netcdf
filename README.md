@@ -4,15 +4,14 @@
 
 ## Introduction
 
-Netcdf_cmdline is a command line interface to flopy's netcdf export feature.  Netcdf_cmdline is used
-to export geographic model data and results from MODFLOW projects to NetCDF format.  Netcdf_cmdline 
-uses flopy to export a MODFLOW project's model grid along with model cell elevation and location.  The 
-geographic location and elevation of each model cell is calculated based on the model grid and additional 
-information supplied in a configuration file.  Model input and output data are exported for each cell from 
-the modflow input and output files.
+Netcdf_cmdline is a command line interface to flopy's netcdf export feature.  Netcdf_cmdline exports 
+geographic model data and results from MODFLOW projects to NetCDF format using flopy to export the MODFLOW 
+model grid along with model cell elevation and location.  The geographic location and elevation of each model 
+cell is calculated based on the model grid and additional information that the user must add to the MODFLOW
+name file.  Model input and output data are exported from the modflow input and output files.
 
-Netcdf_cmdline uses the Flopy libraries to access MODFLOW project data, and supports the versions
-of MODFLOW supported by Flopy, including MODFLOW-2000, MODFLOW-2005, MODFLOW-NWT, and MODFLOW-USG.
+Netcdf_cmdline uses the flopy libraries to access MODFLOW project data, and supports the versions
+of MODFLOW supported by flopy, including MODFLOW-2000, MODFLOW-2005, MODFLOW-NWT, and MODFLOW-USG.
 
 ## Installation
 
@@ -68,22 +67,22 @@ special care to download the versions that match your version of Python.
 
 The steps to run Netcdf_cmdline are:
 
-1) Add geographic location information to your project's MODFLOW name file
+1) Add geographic location information to your project's name file
 
-2) Edit your project's MODFLOW output control file to generate the cell budget and head output you wish to export
+2) Edit your project's output control file to generate the cell budget and head output you wish to export
 
-3) Run your MODFLOW model
+3) Run your model
 
 4) Run Netcdf_cmdline.py (see example command line in the "Examples" section)
 
 ## Documentation
 
-Netcdf_cmdline is a command line interface and a netcdf export feature included in flopy's python library interface.  
-The command line interface is accessed by running the python script Netcdf_cmdline.py with the appropriate command line.
+Netcdf_cmdline is a command line interface that uses the netcdf export feature included in flopy's python library interface.  
+The command line interface is used by running the python script Netcdf_cmdline.py with the appropriate command line.
 
 ### Compatibility
 
-Netcdf_cmdline generates twp output NetCDF file that can be displayed using the GODIVA2 Data Visualization option on a 
+Netcdf_cmdline generates two NetCDF files that can be displayed using the GODIVA2 Data Visualization option on a 
 THREDDS data server.  GODIVA2 data visualization will only work properly for data files that have a consistent single 
 time series.  Therefore head and cell budget data must be saved during the same time intervals for these data to be displayed
 correctly.  This can be accomplished by editing the MODFLOW output control file so that for every stress period and time
@@ -109,19 +108,19 @@ basic understanding of command line interfaces and does not require any python p
 
 Geographic location information must be added to the beginning of your project's MODFLOW name file.  Geographic location 
 information includes x and y coordinates of the northwest (upper left) corner of the model grid (xul and yul), the model 
-grid's rotation, and the proj4 coordinate system of your model grid (proj4_str).  Geographic location information is added 
+grid's rotation (rotation), and the proj4 coordinate system of your model grid (proj4_str).  Geographic location information is added 
 to a single commented line in the MODFLOW name file using the following format:
 
 \#xul:[X Cooordinate], yul:[Y Coordinate], rotation:[Rotation Angle], proj4_str:[Proj4 String]
 		
 ## Examples
 
-### Netcdf_cmdline Command Line Example
+### Command Line Example
 
-Netcdf_cmdline can be run using four required command line switches identifing the name file, the NetCDF output file for
+Netcdf_cmdline can be run using four required command line switches identifing your model's name file, the NetCDF output file for
 MODFLOW input data, the NetCDF output file for MODFLOW output data, and the precision of the MODFLOW output files:
 
-	mfnetcdf_cmdline.py -n "input\modflow_proj.nam" -ni "ouput\netcdf_file_in.nc" -no "output\netcdf_file_out.nc" -p double
+	mfnetcdf_cmdline.py -n "input\modflow_proj.nam" -ni "ouput\netcdf_file_in.nc" -no "output\netcdf_file_out.nc" -p "double"
 
 ### Geographic information
 
@@ -180,10 +179,12 @@ MODFLOW output variables stored in the NetCDF output file are read from the outp
 file.  They include the following:
 	
 Head file
+
 	head
 		4-D array of head values (time, layer, x, y)
 
 Cell by cell Budget File
+
 	constant_head
 	flow_right_face
 	flow_front_face 
