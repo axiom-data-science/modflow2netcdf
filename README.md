@@ -1,17 +1,17 @@
-# Netcdf_cmdline
+# Command Line Interface for FloPy's NetCDF Export
 
 ### Version 1.0.0
 
 ## Introduction
 
-Netcdf_cmdline is a command line interface to flopy's netcdf export feature.  Netcdf_cmdline exports 
-geographic model data and results from MODFLOW projects to NetCDF format using flopy to export the MODFLOW 
+Netcdf_cmdline is a command line interface to FloPy's netcdf export feature.  Netcdf_cmdline exports 
+geographic model data and results from MODFLOW projects to NetCDF format using FloPy to export the MODFLOW 
 model grid along with model cell elevation and location.  The geographic location and elevation of each model 
 cell is calculated based on the model grid and additional information that the user must add to the MODFLOW
 name file.  Model input and output data are exported from the modflow input and output files.
 
-Netcdf_cmdline uses the flopy libraries to access MODFLOW project data, and supports the versions
-of MODFLOW supported by flopy, including MODFLOW-2000, MODFLOW-2005, MODFLOW-NWT, and MODFLOW-USG.
+Netcdf_cmdline uses the FloPy libraries to access MODFLOW project data, and supports the versions
+of MODFLOW supported by FloPy, including MODFLOW-2000, MODFLOW-2005, MODFLOW-NWT, and MODFLOW-USG.
 
 ## Installation
 
@@ -21,7 +21,7 @@ system specific installation instructions are available below.
   * NumPy
   * HDF5
   * netCDF4
-  * flopy
+  * FloPy
 
 ### Windows
 
@@ -31,9 +31,9 @@ special care to download the versions that match your version of Python.
   * NumPy
   * HDF5
   * netCDF4
-  * flopy
+  * FloPy
 
-2.  Install 'flopy' (version 3) from https://github.com/modflowpy/flopy
+2.  Install 'FloPy' (version 3) from https://github.com/modflowpy/FloPy
 
 ### Linux (using pip)
 
@@ -46,7 +46,7 @@ special care to download the versions that match your version of Python.
   * NumPy
   * HDF5
   * netCDF4
-  * flopy
+  * FloPy
 
 
 ### Linux (using conda)
@@ -61,7 +61,7 @@ special care to download the versions that match your version of Python.
   * NumPy
   * HDF5
   * netCDF4
-  * flopy
+  * FloPy
 
 ## Running Netcdf_cmdline
 
@@ -77,7 +77,7 @@ The steps to run Netcdf_cmdline are:
 
 ## Documentation
 
-Netcdf_cmdline is a command line interface that uses the netcdf export feature included in flopy's python library interface.  
+Netcdf_cmdline is a command line interface that uses the netcdf export feature included in FloPy's python library interface.  
 The command line interface is used by running the python script Netcdf_cmdline.py with the appropriate command line.
 
 ### Compatibility
@@ -90,7 +90,7 @@ step that "SAVE HEAD" appears, "SAVE BUDGET" also appears, and vica versa.
 
 ### Command line interface
 
-The 'Netcdf_cmdline.py' python script provides a simple command line interface to flopy's netcdf export library.  This 
+The 'Netcdf_cmdline.py' python script provides a simple command line interface to FloPy's netcdf export library.  This 
 interface can be used to export data from a MODFLOW project to a NetCDF file.  Usage of this interface requires only a 
 basic understanding of command line interfaces and does not require any python programming language knowledge.  The 
 'Netcdf_cmdline.py' script takes the following command line parameters:
