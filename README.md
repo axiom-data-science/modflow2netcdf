@@ -1,28 +1,25 @@
-# Modflow2NetCDF
+# Netcdf_cmdline
 
 ### Version 1.0.0
 
 ## Introduction
 
-Modflow2NetCDF is a tool for exporting geographic model data and results from MODFLOW 
-projects to NetCDF format.  Modflow2NetCDF exports a MODFLOW project's model grid along with model 
-cell elevation and location.  The geographic location and elevation of each model cell is calculated 
-based on the model grid and additional information supplied in a configuration file.  Model output 
-data is exported for each cell from the head and cell budget files.
+Netcdf_cmdline is a command line interface to flopy's netcdf export feature.  Netcdf_cmdline is used
+to export geographic model data and results from MODFLOW projects to NetCDF format.  Netcdf_cmdline 
+uses flopy to export a MODFLOW project's model grid along with model cell elevation and location.  The 
+geographic location and elevation of each model cell is calculated based on the model grid and additional 
+information supplied in a configuration file.  Model input and output data are exported for each cell from 
+the modflow input and output files.
 
-Modflow2NetCDF uses the Flopy libraries to access MODFLOW project data, and supports the versions
+Netcdf_cmdline uses the Flopy libraries to access MODFLOW project data, and supports the versions
 of MODFLOW supported by Flopy, including MODFLOW-2000, MODFLOW-2005, MODFLOW-NWT, and MODFLOW-USG.
 
 ## Installation
 
-Modflow2NetCDF requires Python 2.7 or higher.  In addition, the following python libraries need to be installed prior to installation of Modflow2NetCDF.  Operating
+Netcdf_cmdline requires Python 2.7 or higher.  In addition, the following python libraries need to be installed prior to using netcdf_cmdline.  Operating
 system specific installation instructions are available below.
-
   * pyproj
-  * pygc
   * NumPy
-  * SciPy
-  * matplotlib
   * HDF5
   * netCDF4
   * flopy
@@ -32,11 +29,10 @@ system specific installation instructions are available below.
 1.  Install dependencies from http://www.lfd.uci.edu/~gohlke/pythonlibs/.  Take
 special care to download the versions that match your version of Python.
   * pyproj
-  * pygc
   * NumPy
-  * SciPy
-  * matplotlib
+  * HDF5
   * netCDF4
+  * flopy
 
 2.  Install 'flopy' (version 3) from https://github.com/modflowpy/flopy
 
@@ -47,11 +43,9 @@ special care to download the versions that match your version of Python.
   * [netCDF 4.x](http://www.unidata.ucar.edu/downloads/netcdf/index.jsp) (with netCDF4/HDF5 support)
 
 2.  Install the following libraries using 'pip install [library]'
-  * pyproj (optional - only if you need to do a coordinate transformation)
-  * pygc
-  * numpy
-  * scipy
-  * matplotlib
+  * pyproj
+  * NumPy
+  * HDF5
   * netCDF4
   * flopy
 
@@ -64,283 +58,86 @@ special care to download the versions that match your version of Python.
   * [PROJ.4](http://trac.osgeo.org/proj/)
 
 2.  Install the following libraries using 'conda install [library]'
-  * pyproj  (optional - only if you need to do a coordinate transformation)
-  * pygc
-  * numpy
-  * scipy
-  * matplotlib
+  * pyproj
+  * NumPy
+  * HDF5
   * netCDF4
   * flopy
 
-## Running Modflow2NetCDF
+## Running Netcdf_cmdline
 
-The steps to run Modflow2NetCDF are:
+The steps to run Netcdf_cmdline are:
 
-1) Edit your MODFLOW output control file to generate the cell budget and head output you wish to export
+1) Add geographic location information to your project's MODFLOW name file
 
-2) Run your MODFLOW model
+2) Edit your project's MODFLOW output control file to generate the cell budget and head output you wish to export
 
-3) Build a Modflow2NetCDF configuration file for you model (see example MODFLOW2NetCDF configuration file in the "Examples" section)
+3) Run your MODFLOW model
 
-4) Run mfnetcdf_cmdline.py (see example command line in the "Examples" section)
-
-For more information on steps 3 and 4 see the documentation and examples below.
+4) Run Netcdf_cmdline.py (see example command line in the "Examples" section)
 
 ## Documentation
 
-MODFLOW2NetCDF supports a command line interface and a python library interface.  The command line interface
-is accessed by running the python script mfnetcdf_cmdline.py with the appropriate command line.
-To use the library interface import ModflowToNetCDF from modflow2netcdf.mfnetcdf.  Documentation
-and examples for both methods are given below.
+Netcdf_cmdline is a command line interface and a netcdf export feature included in flopy's python library interface.  
+The command line interface is accessed by running the python script Netcdf_cmdline.py with the appropriate command line.
 
 ### Compatibility
 
-MODFLOW2NetCDF's output NetCDF file can be displayed using the GODIVA2 Data Visualization option on a THREDDS data 
-server.  GODIVA2 data visualization will only work properly for data files that have a consistent single time series.
-Therefore head and cell budget data must be saved during the same time intervals for these data to be displayed
+Netcdf_cmdline generates twp output NetCDF file that can be displayed using the GODIVA2 Data Visualization option on a 
+THREDDS data server.  GODIVA2 data visualization will only work properly for data files that have a consistent single 
+time series.  Therefore head and cell budget data must be saved during the same time intervals for these data to be displayed
 correctly.  This can be accomplished by editing the MODFLOW output control file so that for every stress period and time
 step that "SAVE HEAD" appears, "SAVE BUDGET" also appears, and vica versa.
 
-### MODFLOW2NetCDF Configuration File
-
-A MODFLOW2NetCDF configuration file needs to be built for each MODFLOW project exported into NetCDF format.  The 
-configuration file contains information specific to the MODFLOW project being exported, including spatial and temporal 
-information.  Python's ConfigParser library is used to read the configuration file, which consists of sections followed by 
-"name: value" entries.
-
-The configuration file is specified from the MODFLOW2NetCDF commandline (mfnetcdf_cmdline.py) with the -c [CONFIG_FILE] parameter.  
-The MODFLOW2NetCDF library requires the location of the configuration file be specified during initialization of the 
-ModflowToNetCDF class.
-
-The configuration file contains spatial data which includes the grid projection used by the model, the location of the 
-upper left grid point in the model's projection, the rotation of the grid from true north-south, and the units of measurement.  
-MODFLOW2NetCDF converts spatial data from your project's coordinate system into latitude and longitude coordinates on the 
-WGS84 reference ellipsoid (EPSG 4326).  This allows all projects to be displayed in a standard coordinate system.
-
-Two example configuration files are shown in the "Examples" section.
-
-#### Configuration settings
-
-The MODFLOW2NetCDF configuration file has five sections, general, space, time, output, and metadata.  The
-sections and descriptions of required and optional entries in each section are documented below.
-
-##### General section
-###### precision : [single or double]
-	Precision of the MODFLOW output file
-	
-##### Space section
-###### crs : [integer or string]
-	EPSG code or pyproj4 string of the grid projection used by the MODFLOW model
-###### origin_x : [float]
-	X coordinate location of the upper left corner of the model grid in the projection used by the MODFLOW model
-###### origin_y : [float]
-	Y coordinate location of the upper left corner of the model grid in the projection used by the MODFLOW model
-###### rotation : [float]
-	Clockwise rotation of the model grid in degrees from true north
-###### units : [meters or feet]
-	Model's units of measurement
-	
-##### Time section
-###### units: [string]
-	Time units specified in the NetCDF file.  
-		Example: 'days', 'hours', or 'minutes'
-###### base: [string]
-	Base date when the model started.  UTC is assumed if no timezone information is specified.
-		Example: '2006-06-01 00:00:00'
-
-##### Output section
-
-###### head (optional): [file_path] 
-	Path to the head output file relative to configuration file.
-		Example: 'output\mymodelrun.hds'
-
-###### cbud (optional): [file_path]
-	Path to the cellBudget output file relative to configuration file.
-		Example: 'output\mymodelrun.cbb'
-
-###### headtype (optional): [binary/formatted]
-	Type of head file (binary or formatted).
-		Example: 'binary'
-
-##### Metadata section
-
-###### [key]: [value]
-	Each key/value in the 'metadata' block will be added as a global attribute in the NetCDF4 file
-		Example: 'creator:  modflow2netcdf'
-
 ### Command line interface
 
-The 'mfnetcdf_cmdline.py' python script provides a simple command line interface to the MODFLOW2NetCDF library.  This 
+The 'Netcdf_cmdline.py' python script provides a simple command line interface to flopy's netcdf export library.  This 
 interface can be used to export data from a MODFLOW project to a NetCDF file.  Usage of this interface requires only a 
 basic understanding of command line interfaces and does not require any python programming language knowledge.  The 
-'mfnetcdf_cmdline.py' script takes the following command line parameters:
+'Netcdf_cmdline.py' script takes the following command line parameters:
 
 	-n NAME_FILE				
 		The path to a MODFLOW namefile
-	-c CONFIG_FILE			
-		The path to a MODFLOW2NetCDF configuration file
-	[-o OUTPUT_FILE]		
-		The path to the MODFLOW2NetCDF output file, default output file is output.nc 
-	[-v]								
-		Run in verbose mode, defaults to False
-	[-vf]								
-		Verify NetCDF file, defaults to False
-	
-### Using Modflow2NetCDF as a library 
+	-ni FILE_PATH
+		The path to the NetCDF output file that will store model input data
+	-no FILE_PATH
+		The path to the NetCDF output file that will store model output data
+	-p PRECISION ('single' or 'double')
+		Precision of modflow output files, single or double.  
 
-The Modflow2NetCDF library was designed to export data and results from a MODFLOW project to a NetCDF formatted file. The 
-Modflow2NetCDF library contains a single class, ModflowToNetCDF.
+### Geographic location information
 
-#### ModflowToNetCDF Class
+Geographic location information must be added to the beginning of your project's MODFLOW name file.  Geographic location 
+information includes x and y coordinates of the northwest (upper left) corner of the model grid (xul and yul), the model 
+grid's rotation, and the proj4 coordinate system of your model grid (proj4_str).  Geographic location information is added 
+to a single commented line in the MODFLOW name file using the following format:
 
-The ModflowToNetCDF class contains two methods, one method exports MODFLOW data to a NetCDF file and one method plots 
-MODFLOW data.  This class reads data from a MODFLOW project's input and output files using flopy.  This class requires a 
-Modflow2NetCDF configuration file that must be created for each MODFLOW project that is exported into NetCDF format.
-
-##### Parameters
-	
-		namfilename : string
-			MODFLOW project name file including full or relative path
-		config_file : string
-			ModflowToNetCDF config file including full or relative path
-		version : string (optional)
-			Version of MODFLOW project 
-		  	default value = 'mf2k'
-		exe_name : string (optional)
-			Modflow executable name 
-				default value = 'mf2005.exe'
-		verbose : boolean (optional)
-			Run ModflowtoNetCDF in verbose mode 
-				default value = False
-		model_ws : string (optional)
-			Full or relative path to model input files 
-				defualt_value = None (current path)
+\#xul:[X Cooordinate], yul:[Y Coordinate], rotation:[Rotation Angle], proj4_str:[Proj4 String]
 		
-##### Methods
-		
-###### to_plot :  Creates a plot.
-       
-        Parameters
-        ----------
-		variable : string (optional)
-			Data variable name to plot 
-				default value = None (plot model surface)
-		level : integer (optional)
-			Number of model layer to plot 
-				default value = 0 (top layer)
-		time : integer (optional)
-			Date/time to be plotted
-				default value = 0
-		colormap : Colormap (optional)
-			Colormap to use 
-				default value = matplotlib.cm.Reds
-					
-###### save_netcdf : Creates a netcdf file.
-
-        Parameters
-        ----------
-        output_file : string
-        	File name including full file path of output netcdf file
-        verify : boolean (optional)
-        	Netcdf file verification mode.  When set to True data in the netcdf output file are verified.
-      			default value = False     
-      			 
-        Returns
-        ----------
-        netcdf4.dataset
-            Dataset containing the contents of the outputted netcdf file
- 
-
 ## Examples
 
-### Modflow2NetCDF Command Line Example
+### Netcdf_cmdline Command Line Example
 
-Modflow2NetCDF can be run from the command line using three required command line switches 
-identifing the name file, Modflow2NetCDF config file, and output file:
+Netcdf_cmdline can be run using four required command line switches identifing the name file, the NetCDF output file for
+MODFLOW input data, the NetCDF output file for MODFLOW output data, and the precision of the MODFLOW output files:
 
-	mfnetcdf_cmdline.py -n "input\modflow_proj.nam" -c "input\modflow_proj.geo" -o "output\netcdf_file.nc"
-	
-### Modflow2NetCDF Configuration File Examples
+	mfnetcdf_cmdline.py -n "input\modflow_proj.nam" -ni "ouput\netcdf_file_in.nc" -no "output\netcdf_file_out.nc" -p double
 
-The Modflow2NetCDF configuration file contains project specific information about a specific MODFLOW project which is
-used to properly export MODFLOW data into NetCDF format.  The following are examples of Modflow2NetCDF configuration
-files.  These examples contain project specific information that most likely will need to be customized for each MODFLOW 
-project. 
+### Geographic information
 
-#### Example WGS84 Configuration File
+Below is an example of geographic coorindate information added to the top of a MODFLOW name file.  The example coordinate 
+information is for a model grid with x and y coordinate locations (northwest corner) of -83.747389 and 32.917647, 
+grid rotation of -42.95 degrees, using the latitute/longitude WGS84 coorindates.
 
-[general]
-precision:  double    ; The precision of the MODFLOW model, single or double precision. ('single' or 'double').
-
-[space]
-crs:      4326        ; EPSG code of grid projection used by the model
-origin_x: -72         ; Longitude of upper left grid point (origin)
-origin_y: 41.44       ; Latitude of upper left grid point (origin)
-rotation: 45          ; True north based grid rotation angle (clockwise from true north)
-units:    m           ; Units of measurment ('meters', 'm', 'feet', 'ft', or 'f')
-
-[time]
-units:    days        ; Time units in output
-base:     2006-06-01 00:00:00    ; Assumed UTC if no timezone information is specified
-
-[output]
-head:     mymodelrun.hds  ; Optional. Path to the head output file (relative to config file).
-cbud:     mymodelrun.cbb  ; Optional. Path to the cell budget output file (relative to config file).
-
-[metadata]            ; Each key/value in the 'metadata' block will be added as a global attribute in the NetCDF4 file
-id:       my_model_id
-creator:  modflow2netcdf
-
-```
-
-#### Example Web-mercator Configuration File
-```ini
-[general]
-precision:  single    ; The precision of the MODFLOW model, single or double precision. ('single' or 'double').
-
-[space]
-crs:      3857        ; EPSG code of grid projection used by the model
-origin_x: -8012405.88 ; Longitude of upper grid left point (origin)
-origin_y: 5078408.56  ; Latitude of uppper grid left point (origin)
-rotation: 0           ; True north based grid rotation angle (clockwise from true north)
-units:    ft          ; Units of measurment ('meters', 'm', 'feet', 'ft', or 'f')
-
-[time]
-units:    days        ; Time units in output
-base:     1992-01-06 06:00:00 -0500
-
-[output]  ; Not needed, the default extensions for the head (.bhd) and cell budget (.bud) output files will be assumed.
-
-[metadata]            ; Each key/value in the 'metadata' block will be added as a global attribute in the NetCDF4 file
-id:       my_model_id
-creator:  modflow2netcdf
-```
-
-#### Example Python Code Accessing the MODFLOW2NetCDF Library
-
-MODFLOW2NetCDF provides a python library interface.  The following is an example python script using this interface.
-
-	import os
-	from modflow2netcdf.mfnetcdf import ModflowToNetCDF
-
-	# Set paths to name, config, and output files
-	name_file = os.path.realpath('..\\..\\..\\modflow2netcdf\\tests\\resources\\freyberg\\freyberg.nam')
-	config_file = os.path.realpath('..\\..\\..\\modflow2netcdf\\tests\\resources\\freyberg\\freyberg.geo')
-	output_file = os.path.realpath('freyberg.nc')
-
-	# Execute ModflowToNetCDF
-	mo = ModflowToNetCDF(os.path.basename(name_file), config_file=config_file, verbose=False, model_ws=os.path.dirname(name_file))
-	mo.save_netcdf(output_file, False)
-	
-This example script exports MODFLOW data from the Freyberg test model to a NetCDF4 file named freyberg.nc.  The script 
-makes use of freyberg.geo, a Modflow2NetCDF configuration file written for the Freyberg project.
+	\# MF2K NAME file
+	\#xul:-83.747389, yul:32.917647, rotation:-42.95, proj4_str:+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs
 
 ## NetCDF Output File Contents
 
-The NetCDF output file that Modflow2NetCDF creates contains location based data saved with latitute, longitude, and elevation
-coordinates based on EPSG code 4326 (semi-major axis = 6378137.0, inverse flattening = 298.257223563).  Data is layed out on a 
-grid with spatial dimension variables (x, y, and layer).  In addition, a time dimension (t) is used to specify the times used 
-in the MODFLOW head and cell budget output files.  The NetCDF output file contains the following variables.
+The NetCDF output file contains location based data saved with latitute, longitude, and elevation coordinates based on EPSG 
+code 4326.  Data is layed out on a grid with spatial dimension variables (x, y, and layer).  In addition, a time dimension (t) 
+is used to specify the times used in the MODFLOW head and cell budget output files.  The NetCDF output file contains the 
+following variables.
 
 ##### Dimensions
 	
@@ -349,7 +146,10 @@ in the MODFLOW head and cell budget output files.  The NetCDF output file contai
 	layer
 	time
 		
-##### General Variables
+##### MODFLOW Input Variables Stored
+
+MODFLOW input variables stored in the NetCDF output file include the following.  In addition, many package specific
+input variables are also stored.
 	
 	crs 
 		Coordinate system used.  EPSG code: 4326
@@ -367,38 +167,34 @@ in the MODFLOW head and cell budget output files.  The NetCDF output file contai
 		1-D array of cell widths along model columns
 	delr
 		1-D array of cell widths along model rows
-	VerticalTransform
+	layer thickness
+		3-D array of layer thickness
+	starting heads
+		3-D array of starting heads
+	ibound
+		3-D ibound array
 		
-##### Head variables (when provided in head file)
+##### MODFLOW Output Variables Stored
+
+MODFLOW output variables stored in the NetCDF output file are read from the output head file and cell budget
+file.  They include the following:
 	
+Head file
 	head
 		4-D array of head values (time, layer, x, y)
 
-##### Cell budget variables (when provided in cell budget file)
-	
-	Cell budget variables each are written as 4-D arrays (time, layer, x, y) to the 
-	NetCDF output file.  These variables may include:
-		
-		constant_head
-		flow_right_face_centered 
-		flow_right_face
-		flow_front_face_centered
-		flow_front_face 
-		flow_lower_face_centered
-		flow_lower_face 
-		wells
-		drains
-		river_leakage
-		head_dep_bounds
-		recharge
-		specified_flows
-		stream_leakage
-		et_segments
-		mnw
-		storage
-		
-	All variables except the flow_xxxx_face_centered variables are extracted directly from the cell budget file.  The flow_xxxx_face_centered
-	variables are calculated 4-D arrays based on the cooresponding flow_xxxx_face variables extracted from the cell budget file.  The centered
-	values are calculated as the average flow across two adjacent (parallel) faces.  For example, flow_right_face_centered is calculated for cell
-	(i,j,k) as the average of the flow across the right face of (i,j,k) (the face shared by (i,j,k) and (i,j+1,k)) and the flow across the right
-	face of (i,j-1,k) (the face shared by (i,j-1,k) and (i,j,k). 
+Cell by cell Budget File
+	constant_head
+	flow_right_face
+	flow_front_face 
+	flow_lower_face 
+	wells
+	drains
+	river_leakage
+	head_dep_bounds
+	recharge
+	specified_flows
+	stream_leakage
+	et_segments
+	mnw
+	storage
