@@ -181,7 +181,6 @@ file.  They include the following:
 Head file
 
 	head
-		4-D array of head values (time, layer, x, y)
 
 Cell by cell Budget File
 
